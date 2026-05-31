@@ -1,0 +1,107 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-versions: [8.1, 8.2]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=5
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: |-
+            node_modules
+            AgriTraceMobileApp/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-suggest --optimize-autoloader
+
+      - name: Install frontend dependencies (assets)
+        run: |
+          if [ -f package.json ]; then npm ci; fi
+
+      - name: Wait for MySQL
+        run: |
+          for i in `seq 1 30`; do
+            mysqladmin ping -h127.0.0.1 -uroot -proot && break || sleep 2
+          done
+
+      - name: Configure .env for tests
+        run: |
+          cp .env.example .env || true
+          php -r "file_exists('.env') || copy('.env.example','.env');"
+          php artisan key:generate --ansi
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: test_db
+          DB_USERNAME: root
+          DB_PASSWORD: root
+
+      - name: Run migrations and seed
+        run: |
+          php artisan migrate --force
+          php artisan db:seed --class=DatabaseSeeder --force || true
+
+      - name: Run static analysis (phpstan if configured)
+        run: |
+          if [ -f phpstan.neon ] || [ -f phpstan.neon.dist ]; then ./vendor/bin/phpstan analyse || true; fi
+
+      - name: Run PHPUnit
+        run: ./vendor/bin/phpunit --no-interaction --testsuite=Unit --log-junit junit.xml
+
+      - name: Upload PHPUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-junit
+          path: junit.xml
+

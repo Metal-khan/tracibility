@@ -1,0 +1,294 @@
+### Login Super Admin
+POST http://127.0.0.1:8000/api/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@agritrace.com",
+  "password": "password"
+}
+
+### Get Authenticated User (Protected Route)
+GET http://127.0.0.1:8000/api/user
+Accept: application/json
+Authorization: Bearer 3|xYLSShoswZyNs8OGTILJFZ7Cplquk1qf7vfcgXu3a1b09b05
+
+### Login Farmer
+POST http://127.0.0.1:8000/api/login
+Content-Type: application/json
+
+{
+  "email": "farmer@agritrace.com",
+  "password": "password"
+}
+
+### Create Product (Farmer only) - Use this to get a new Product ID
+POST http://127.0.0.1:8000/api/products
+Content-Type: multipart/form-data; boundary=agritrace-product-boundary
+Authorization: Bearer 4|zXZpcKck8N3v2ON6oG5uVQTqrkN8SGtNDLG9a5tg8542d373
+Accept: application/json
+
+--agritrace-product-boundary
+Content-Disposition: form-data; name="crop_type"
+
+Test Product for Reviews
+--agritrace-product-boundary
+Content-Disposition: form-data; name="quantity"
+
+100
+--agritrace-product-boundary
+Content-Disposition: form-data; name="unit"
+
+kg
+--agritrace-product-boundary
+Content-Disposition: form-data; name="harvest_date"
+
+2025-07-17
+--agritrace-product-boundary
+Content-Disposition: form-data; name="description"
+
+Product to receive reviews.
+--agritrace-product-boundary
+Content-Disposition: form-data; name="origin_location_lat"
+
+34.0151
+--agritrace-product-boundary
+Content-Disposition: form-data; name="origin_location_lon"
+
+71.5249
+--agritrace-product-boundary
+Content-Disposition: form-data; name="origin_location_address"
+
+Peshawar, Pakistan
+--agritrace-product-boundary
+Content-Disposition: form-data; name="photos[]"; filename="review_test_photo.jpg"
+Content-Type: image/jpeg
+
+< C:\Users\mujtb\Desktop\Desktop\image\tomato.png
+--agritrace-product-boundary--
+
+### Login Logistics
+POST http://127.0.0.1:8000/api/login
+Content-Type: application/json
+
+{
+  "email": "logistics@agritrace.com",
+  "password": "password"
+}
+
+### Test Public Product Details Scan
+# Use the ID of a product you just created, e.g., 1, 2, etc.
+GET http://127.0.0.1:8000/api/scan/16
+Accept: application/json
+
+### Log Checkpoint (Logistics only)
+# Use the ID of a product you want to log, e.g., 1, 2, etc.
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 33.6844,
+  "location_lon": 73.0479,
+  "location_address": "Islamabad, Pakistan"
+}
+
+### Login Buyer
+POST http://127.0.0.1:8000/api/login
+Content-Type: application/json
+
+{
+  "email": "buyer@agritrace.com",
+  "password": "password"
+}
+
+### Submit Review 1 (Buyer)
+# Use the ID of a product to review (e.g., the one created above)
+POST http://127.0.0.1:8000/api/products/16/reviews
+Content-Type: application/json
+Authorization: Bearer 6|pSMPzckGn8tixjPuS996u1UdOfoXH325gncKPVxfa664fb71
+Accept: application/json
+
+{
+  "rating": 5,
+  "comment": "Excellent product quality! Highly recommended."
+}
+
+### Submit Review 2 (Buyer)
+# Use the same or different Product ID
+POST http://127.0.0.1:8000/api/products/16/reviews
+Content-Type: application/json
+Authorization: Bearer 6|pSMPzckGn8tixjPuS996u1UdOfoXH325gncKPVxfa664fb71
+Accept: application/json
+
+{
+  "rating": 3,
+  "comment": "Good, but packaging could be better."
+}
+
+### Submit Review 3 (Buyer)
+# Use the same or different Product ID
+POST http://127.0.0.1:8000/api/products/16/reviews
+Content-Type: application/json
+Authorization: Bearer 6|pSMPzckGn8tixjPuS996u1UdOfoXH325gncKPVxfa664fb71
+Accept: application/json
+
+{
+  "rating": 1,
+  "comment": "Disappointing, not as fresh as expected."
+}
+
+### Login Admin
+POST http://127.0.0.1:8000/api/login
+Content-Type: application/json
+
+{
+  "email": "admin@agritrace.com",
+  "password": "password"
+}
+
+### Moderate Review: Approve
+# Get Review ID from phpMyAdmin or previous Submit Review response
+POST http://127.0.0.1:8000/api/reviews/REVIEW_ID_HERE/moderate
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_AUTH_TOKEN_HERE
+Accept: application/json
+
+{
+  "action": "approve"
+}
+
+### Moderate Review: Reject
+# Get Review ID from phpMyAdmin or previous Submit Review response
+POST http://127.0.0.1:8000/api/reviews/REVIEW_ID_HERE/moderate
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_AUTH_TOKEN_HERE
+Accept: application/json
+
+{
+  "action": "reject"
+}
+
+### Moderate Review: Hide
+# Get Review ID from phpMyAdmin or previous Submit Review response
+POST http://127.0.0.1:8000/api/reviews/REVIEW_ID_HERE/moderate
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_AUTH_TOKEN_HERE
+Accept: application/json
+
+{
+  "action": "hide"
+}
+
+### Scan Checkpoints: Skardu to Karachi for Product ID 16
+# Ensure your Logistics user token is valid
+# Product ID: 16
+# Bearer Token: 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+
+### Checkpoint 1: Skardu
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 35.2929,
+  "location_lon": 75.6338,
+  "location_address": "Skardu, Gilgit-Baltistan, Pakistan"
+}
+
+### Checkpoint 2: Gilgit
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 35.9209,
+  "location_lon": 74.3000,
+  "location_address": "Gilgit, Gilgit-Baltistan, Pakistan"
+}
+
+### Checkpoint 3: Mansehra
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 34.3315,
+  "location_lon": 73.2045,
+  "location_address": "Mansehra, Khyber Pakhtunkhwa, Pakistan"
+}
+
+### Checkpoint 4: Islamabad
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 33.6844,
+  "location_lon": 73.0479,
+  "location_address": "Islamabad, ICT, Pakistan"
+}
+
+### Checkpoint 5: Lahore
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 31.5497,
+  "location_lon": 74.3436,
+  "location_address": "Lahore, Punjab, Pakistan"
+}
+
+### Checkpoint 6: Multan
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 30.1945,
+  "location_lon": 71.4197,
+  "location_address": "Multan, Punjab, Pakistan"
+}
+
+### Checkpoint 7: Sukkur
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 27.6974,
+  "location_lon": 68.8687,
+  "location_address": "Sukkur, Sindh, Pakistan"
+}
+
+### Checkpoint 8: Hyderabad
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 25.3963,
+  "location_lon": 68.3636,
+  "location_address": "Hyderabad, Sindh, Pakistan"
+}
+
+### Checkpoint 9: Karachi
+POST http://127.0.0.1:8000/api/checkpoints/16
+Content-Type: application/json
+Authorization: Bearer 5|NzvtCmvYQK7jeuiatNB1HEups9RDKHztTSqPwRxzf95e8335
+Accept: application/json
+
+{
+  "location_lat": 24.8608,
+  "location_lon": 67.0099,
+  "location_address": "Karachi, Sindh, Pakistan"
+}

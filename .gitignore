@@ -1,0 +1,51 @@
+# Root .gitignore for the workspace
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor/IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Composer / PHP
+vendor/
+composer.lock
+.env
+.env.*
+
+# Laravel / backend specific
+agritrace-backend/vendor/
+agritrace-backend/node_modules/
+agritrace-backend/.env
+agritrace-backend/storage/
+agritrace-backend/public/storage
+
+# Mobile / React Native / Expo specific
+AgriTraceMobileApp/node_modules/
+AgriTraceMobileApp/android/
+AgriTraceMobileApp/ios/
+AgriTraceMobileApp/.expo/
+AgriTraceMobileApp/.expo-shared/
+AgriTraceMobileApp/.env
+AgriTraceMobileApp/build/
+AgriTraceMobileApp/dist/
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/

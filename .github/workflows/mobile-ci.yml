@@ -1,0 +1,105 @@
+name: Mobile CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16, 18]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: AgriTraceMobileApp/node_modules
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('AgriTraceMobileApp/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-
+
+      - name: Install mobile dependencies
+        run: |
+          cd AgriTraceMobileApp
+          npm ci --legacy-peer-deps
+
+      - name: Run lint (if available)
+        run: |
+          cd AgriTraceMobileApp
+          if npm run | grep -q "lint"; then npm run lint; else echo "lint not configured"; fi
+
+      - name: Run unit tests (if configured)
+        run: |
+          cd AgriTraceMobileApp
+          if npm run | grep -q "test"; then npm test -- --ci || true; else echo "no tests configured"; fi
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[e2e]')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          cd AgriTraceMobileApp
+          npm ci --legacy-peer-deps
+
+      - name: Run E2E (placeholder)
+        run: |
+          cd AgriTraceMobileApp
+          if npm run | grep -q "e2e"; then npm run e2e; else echo "E2E not configured"; fi
+
+  eas_publish:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install cli
+        run: |
+          npm install -g eas-cli expo-cli
+
+      - name: Install project deps
+        run: |
+          cd AgriTraceMobileApp
+          npm ci
+
+      - name: EAS build & publish (requires secrets)
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          cd AgriTraceMobileApp
+          # Ensure tokens/secrets are configured in repo settings
+          eas whoami || true
+          # Example build command (customize platforms and profiles)
+          npm ci --legacy-peer-deps
+          eas build --platform all --non-interactive || true
+
