@@ -14,16 +14,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('checkpoints', function (Blueprint $table) {
-            
-            // 1. CRITICAL FIX: Conditionally drop the foreign key constraint
-            // This checks if the column exists AND drops the associated FK constraint
+            // dropConstrainedForeignId() drops both the foreign key constraint
+            // and the column itself in one step. A second, separate
+            // dropColumn('logistics_id') call right after this — even guarded
+            // by the same hasColumn() check — queues a duplicate drop of a
+            // column that's already gone by the time SQLite's ALTER TABLE
+            // rebuild runs, which fails migrations on a fresh database with
+            // "no such column: logistics_id". Drop it once.
             if (Schema::hasColumn('checkpoints', 'logistics_id')) {
-                 $table->dropConstrainedForeignId('logistics_id'); // Recommended method in newer Laravel versions
-            }
-
-            // 2. Conditionally drop the column itself (if it somehow still exists)
-            if (Schema::hasColumn('checkpoints', 'logistics_id')) {
-                $table->dropColumn('logistics_id');
+                $table->dropConstrainedForeignId('logistics_id');
             }
         });
     }

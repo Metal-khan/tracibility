@@ -13,19 +13,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // We assume the user_id column has already been added in a previous, partially successful run.
-        // We only proceed to add the foreign key constraint if it doesn't already exist.
-        Schema::table('checkpoints', function (Blueprint $table) {
-            
-            // Check if the column exists but NOT the foreign key (final step of the fix)
-            if (Schema::hasColumn('checkpoints', 'user_id') && 
-                !Schema::hasColumn('checkpoints', 'location_address')) { 
-                // Since the column exists, we do nothing about adding it.
-                // We trust the schema is now ready for the next column changes.
-            }
-
-            // The safest thing to do is make the body of UP empty since the column is there
-        });
+        // This used to assume user_id had already been added by hand on the
+        // original development database and did nothing here — which meant
+        // any fresh install (a new clone, CI, a real deployment) never got
+        // the column at all, and checkpoint logging (Checkpoint::create())
+        // crashed with "no such column: user_id" since Checkpoint::$fillable
+        // and its user() relation both depend on it existing.
+        if (!Schema::hasColumn('checkpoints', 'user_id')) {
+            Schema::table('checkpoints', function (Blueprint $table) {
+                $table->foreignId('user_id')->nullable()->after('product_id')->constrained('users')->onDelete('cascade');
+            });
+        }
     }
 
     /**
