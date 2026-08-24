@@ -22,6 +22,11 @@ const api = axios.create({
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
+    // Free ngrok tunnels serve an interstitial HTML warning page on the
+    // first request instead of proxying through to the real backend,
+    // unless this header is present. Harmless against a real backend that
+    // isn't behind ngrok — it's simply an unrecognized header there.
+    'ngrok-skip-browser-warning': 'true',
   },
 });
 
