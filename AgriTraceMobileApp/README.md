@@ -36,11 +36,20 @@ npm start
 - `npm run web` — run web build
 
 ## Environment
-Copy any environment template files and set API endpoints (point to backend `APP_URL`):
+Copy `.env.example` to `.env` and point it at your backend:
 
 ```bash
-# create .env or use app config
+cp .env.example .env
 ```
+
+By default it targets `http://localhost:8000/api`, which works for the iOS
+Simulator. For the Android Emulator it falls back to `10.0.2.2` automatically
+if `EXPO_PUBLIC_API_URL` is unset. To test on a **physical phone** via Expo
+Go, set `EXPO_PUBLIC_API_URL` in `.env` to your machine's LAN IP (e.g.
+`http://192.168.1.23:8000/api`), make sure the phone is on the same Wi-Fi,
+and start the backend with `php artisan serve --host=0.0.0.0` so it accepts
+connections from other devices. See the comments in `.env.example` for
+details.
 
 ## Build for production
 Follow Expo build/publish docs or use `eas` if configured.

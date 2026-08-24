@@ -33,8 +33,9 @@ class ProductController extends Controller
                 $photos = $product->photos_urls;
                 $absolutePhotos = [];
                 foreach ($photos as $photoUrl) {
-                    // CRITICAL FIX: Use the confirmed local network IP (192.168.1.6)
-                    $absolutePhotos[] = 'http://192.168.1.6:8000' . str_replace(URL::to('/'), '', $photoUrl); 
+                    // Build the absolute URL from the app's own configured URL (APP_URL)
+                    // instead of a hardcoded developer IP, so it works on any network.
+                    $absolutePhotos[] = URL::to('/') . str_replace(URL::to('/'), '', $photoUrl);
                 }
                 $product->photos_urls_array = $absolutePhotos;
             } else {
@@ -225,8 +226,9 @@ class ProductController extends Controller
                 $photos = $product->photos_urls;
                 $absolutePhotos = [];
                 foreach ($photos as $photoUrl) {
-                    // CRITICAL FIX: Use the confirmed local network IP (192.168.1.6)
-                    $absolutePhotos[] = 'http://192.168.1.6:8000' . str_replace(URL::to('/'), '', $photoUrl); 
+                    // Build the absolute URL from the app's own configured URL (APP_URL)
+                    // instead of a hardcoded developer IP, so it works on any network.
+                    $absolutePhotos[] = URL::to('/') . str_replace(URL::to('/'), '', $photoUrl);
                 }
                 $product->photos_urls_array = $absolutePhotos;
             } else {
