@@ -31,8 +31,12 @@ composer.lock
 agritrace-backend/vendor/
 agritrace-backend/node_modules/
 agritrace-backend/.env
-agritrace-backend/storage/
 agritrace-backend/public/storage
+# storage/ itself is tracked (see the per-folder .gitignore files inside it) —
+# Laravel needs storage/framework/{cache,sessions,views}, storage/framework/testing,
+# and storage/logs to exist at runtime, and doesn't create them automatically.
+# Without them, a fresh clone fails with "Please provide a valid cache path."
+# the moment anything tries to render a view (including Laravel's own error page).
 
 # Mobile / React Native / Expo specific
 AgriTraceMobileApp/node_modules/
@@ -47,6 +51,8 @@ AgriTraceMobileApp/dist/
 # Logs
 *.log
 logs/
+!agritrace-backend/storage/logs/
+!agritrace-backend/storage/logs/.gitignore
 
 # Build outputs
 dist/
