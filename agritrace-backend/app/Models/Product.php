@@ -35,7 +35,50 @@ class Product extends Model
      *
      * @var array
      */
-    protected $appends = ['qr_code_html'];
+    protected $appends = ['qr_code_html', 'qr_code_url', 'photos_urls_array'];
+
+    /**
+     * Where this product's QR code SVG lives on the private 'local' disk.
+     * A pure function of the product's own ID — no need to store or
+     * recompute anything, unlike the signed token *inside* the QR image
+     * (see ResolvesTraceTokens), which can't be recomputed since encrypting
+     * the same ID twice produces a different ciphertext each time.
+     */
+    public function qrCodeStoragePath(): string
+    {
+        return 'qrcodes/qr-'.$this->id.'.svg';
+    }
+
+    /**
+     * URL for fetching this product's QR code image — routed through an
+     * authenticated endpoint rather than a public storage URL, so it isn't
+     * openly world-readable. Overrides the raw 'qr_code_url' column
+     * whenever the model is read or serialized (see $appends above);
+     * nothing needs to be stored in that column anymore.
+     */
+    public function getQrCodeUrlAttribute(): ?string
+    {
+        if (!$this->id || !Storage::disk('local')->exists($this->qrCodeStoragePath())) {
+            return null;
+        }
+
+        return URL::to('/api/products/'.$this->id.'/qr-image');
+    }
+
+    /**
+     * Product photo URLs, routed through an authenticated endpoint instead
+     * of the old public storage URLs — same reasoning as qr_code_url above.
+     */
+    public function getPhotosUrlsArrayAttribute(): array
+    {
+        if (!is_array($this->photos_urls)) {
+            return [];
+        }
+
+        return collect($this->photos_urls)
+            ->map(fn ($relativePath) => URL::to('/api/products/'.$this->id.'/photo/'.basename($relativePath)))
+            ->all();
+    }
 
     /**
      * Get the farmer that owns the product.
@@ -76,20 +119,11 @@ class Product extends Model
     public function getQrCodeHtmlAttribute(): string
     {
         try {
-            if (!$this->qr_code_url) {
-                return '<!DOCTYPE html><html><body><p style="text-align:center; color: red;">Error: Barcode URL not stored for this product.</p></body></html>';
-            }
-
-            // Convert full URL back to storage path
-            $qrCodePathInStorage = str_replace(URL::to('/storage/'), 'public/', $this->qr_code_url); 
-            
-            if (str_starts_with($this->qr_code_url, '/storage/')) {
-                $qrCodePathInStorage = 'public/' . substr($this->qr_code_url, 9);
-            }
+            $qrCodePathInStorage = $this->qrCodeStoragePath();
 
             // Check if the actual SVG file exists in storage
-            if (Storage::exists($qrCodePathInStorage)) {
-                $svgContent = Storage::get($qrCodePathInStorage);
+            if (Storage::disk('local')->exists($qrCodePathInStorage)) {
+                $svgContent = Storage::disk('local')->get($qrCodePathInStorage);
                 $encodedSvg = base64_encode($svgContent);
                 
                 // Return HTML containing the Base64 encoded SVG image

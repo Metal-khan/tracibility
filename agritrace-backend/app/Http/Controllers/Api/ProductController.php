@@ -9,7 +9,6 @@ use App\Models\ProductDynamicFieldValue;
 use App\Models\Checkpoint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Auth;
@@ -26,22 +25,9 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         // Get products created by the logged-in user
+        // photos_urls_array and qr_code_url are computed accessors on the
+        // Product model (see app/Models/Product.php) — nothing to build here.
         $products = $request->user()->products()->get();
-
-        $products->each(function ($product) {
-            if (is_array($product->photos_urls)) {
-                $photos = $product->photos_urls;
-                $absolutePhotos = [];
-                foreach ($photos as $photoUrl) {
-                    // Build the absolute URL from the app's own configured URL (APP_URL)
-                    // instead of a hardcoded developer IP, so it works on any network.
-                    $absolutePhotos[] = URL::to('/') . str_replace(URL::to('/'), '', $photoUrl);
-                }
-                $product->photos_urls_array = $absolutePhotos;
-            } else {
-                $product->photos_urls_array = [];
-            }
-        });
 
         return response()->json($products);
     }
@@ -127,16 +113,17 @@ class ProductController extends Controller
             $product->total_weight = $request->num_packages * $request->weight_per_unit;
             $product->save(); // Save to obtain the product ID
 
-            // 3. Handle image uploads
+            // 3. Handle image uploads — stored on the private 'local' disk
+            // (not under 'public/'), so they're never directly reachable by
+            // URL; served only through the authenticated photo() route below.
             $photoPaths = [];
             foreach ($request->file('photos') as $photo) {
-                $path = $photo->store('public/products/photos');
-                $photoPaths[] = Storage::url($path);
+                $photoPaths[] = $photo->store('products/photos');
             }
-            $product->photos_urls = json_encode($photoPaths);
+            $product->photos_urls = $photoPaths; // plain array — the model's 'array' cast handles JSON encoding; json_encode()ing it here too double-encoded it, which is why photos_urls_array came back empty
             $product->save();
 
-            // 4. Generate and save the BARCODE (CRITICAL CHANGE)
+            // 4. Generate and save the QR code
             $productId = $product->id;
 
             $datePart = now()->format('dmy');
@@ -145,11 +132,14 @@ class ProductController extends Controller
 
             // The QR code encodes a signed, opaque token — not the raw
             // sequential product ID — so it can't be enumerated/guessed.
-            // See makeTraceToken()/resolveTraceToken() above.
+            // See makeTraceToken()/resolveTraceToken() above. The SVG file
+            // itself lives on the private disk at a path derived purely
+            // from the product ID (see Product::qrCodeStoragePath()) —
+            // that's just local bookkeeping and unrelated to what the QR
+            // image encodes; it's served only through the authenticated
+            // qrImage() route below, never a public storage URL.
             $traceToken = $this->makeTraceToken($productId);
-            $qrFileName = 'qr-' . $traceToken . '.svg';
-            $qrDirectory = 'public/qrcodes';
-            $qrPath = $qrDirectory . '/' . $qrFileName;
+            $qrDirectory = 'qrcodes';
 
             if (!Storage::disk('local')->exists($qrDirectory)) {
                 Storage::disk('local')->makeDirectory($qrDirectory);
@@ -157,10 +147,9 @@ class ProductController extends Controller
 
             $qrSvg = QrCode::format('svg')->size(300)->generate($traceToken);
 
-            Storage::put($qrPath, $qrSvg);
+            Storage::disk('local')->put($product->qrCodeStoragePath(), $qrSvg);
 
             $product->barcode_text = $humanIdentifier;
-            $product->qr_code_url = URL::to('/') . Storage::url($qrPath);
             $product->save();
 
             return response()->json([
@@ -225,19 +214,6 @@ class ProductController extends Controller
     {
         try {
             $product->load(['farmer', 'reviews.buyer', 'dynamicFieldValues.dynamicField']);
-
-            if (is_array($product->photos_urls)) {
-                $photos = $product->photos_urls;
-                $absolutePhotos = [];
-                foreach ($photos as $photoUrl) {
-                    // Build the absolute URL from the app's own configured URL (APP_URL)
-                    // instead of a hardcoded developer IP, so it works on any network.
-                    $absolutePhotos[] = URL::to('/') . str_replace(URL::to('/'), '', $photoUrl);
-                }
-                $product->photos_urls_array = $absolutePhotos;
-            } else {
-                $product->photos_urls_array = [];
-            }
 
             return response()->json(['product' => $product]);
         } catch (\Exception $e) {
@@ -334,10 +310,9 @@ class ProductController extends Controller
             if ($request->hasFile('photos')) {
                 $photoPaths = [];
                 foreach ($request->file('photos') as $photo) {
-                    $path = $photo->store('public/products/photos');
-                    $photoPaths[] = Storage::url($path);
+                    $photoPaths[] = $photo->store('products/photos');
                 }
-                $product->photos_urls = json_encode($photoPaths);
+                $product->photos_urls = $photoPaths; // plain array — the model's 'array' cast handles JSON encoding; json_encode()ing it here too double-encoded it, which is why photos_urls_array came back empty
                 $product->save();
             }
 
@@ -377,5 +352,42 @@ class ProductController extends Controller
             'barcode_text' => $product->barcode_text,
             'product_id' => $product->id,
         ]);
+    }
+
+    /**
+     * Serve a product's QR code SVG. Gated by the same auth+role
+     * requirement as viewing the product's data at all (see /scan/{id} and
+     * this route's middleware in routes/api.php) — not a public storage URL.
+     */
+    public function qrImage(Product $product)
+    {
+        $path = $product->qrCodeStoragePath();
+
+        if (!Storage::disk('local')->exists($path)) {
+            abort(404);
+        }
+
+        return Storage::disk('local')->response($path, null, [
+            'Content-Type' => 'image/svg+xml',
+        ]);
+    }
+
+    /**
+     * Serve one of a product's photos. Gated the same way as qrImage()
+     * above. $filename must match the basename of one of this product's
+     * own stored photos_urls entries — otherwise 404, rather than trusting
+     * the path segment to read an arbitrary file off the private disk.
+     */
+    public function photo(Product $product, string $filename)
+    {
+        $photos = is_array($product->photos_urls) ? $product->photos_urls : [];
+
+        $relativePath = collect($photos)->first(fn ($stored) => basename($stored) === $filename);
+
+        if (!$relativePath || !Storage::disk('local')->exists($relativePath)) {
+            abort(404);
+        }
+
+        return Storage::disk('local')->response($relativePath);
     }
 }
