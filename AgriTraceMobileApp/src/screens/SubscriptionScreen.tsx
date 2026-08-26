@@ -36,7 +36,7 @@ const SubscriptionScreen: React.FC = () => {
         { id: 'FREE_TRIAL_3', name: 'Free Trial', price: 0.00, products: 3 as number | string, icon: 'account-star-outline', color: '#007bff' },
         { id: 'BASIC_5', name: '5 Product Pack', price: 49.99, products: 5 as number | string, icon: 'numeric-5-box-outline', color: '#28a745' },
         { id: 'STANDARD_10', name: '10 Product Pack', price: 89.99, products: 10 as number | string, icon: 'numeric-10-box-outline', color: '#ffc107' },
-        { id: 'PREMIUM_25', name: '25 Product Pack', price: 199.99, products: 25 as number | string, icon: 'numeric-25-box-outline', color: '#dc3545' },
+        { id: 'PREMIUM_25', name: '25 Product Pack', price: 199.99, products: 25 as number | string, icon: 'numeric-9-plus-box-outline', color: '#dc3545' },
         { id: 'UNLIMITED', name: 'Unlimited Annual', price: 499.99, products: 'Unlimited' as number | string, icon: 'infinity', color: '#800080' },
     ];
     
