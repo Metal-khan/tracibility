@@ -180,16 +180,24 @@ const ProductEntryScreen: React.FC = () => {
       const firstErrorField = Object.keys(errors)[0];
       const errorRef = inputRefs.current[firstErrorField];
 
-      if (errorRef && scrollRef.current) {
-        errorRef.measureLayout(
-          scrollRef.current.getInnerViewNode(),
-          (x, y) => {
-            scrollRef.current?.scrollTo({ y: y, animated: true });
-            if (errorRef.focus) {
-              errorRef.focus();
+      // Not every field's ref is backed by a native component that supports
+      // measureLayout (some picker/dropdown implementations aren't, notably
+      // on iOS) — calling it on one of those throws and would otherwise take
+      // down the whole screen just because auto-scroll-to-error couldn't run.
+      if (errorRef && scrollRef.current && typeof errorRef.measureLayout === 'function') {
+        try {
+          errorRef.measureLayout(
+            scrollRef.current.getInnerViewNode(),
+            (x, y) => {
+              scrollRef.current?.scrollTo({ y: y, animated: true });
+              if (errorRef.focus) {
+                errorRef.focus();
+              }
             }
-          }
-        );
+          );
+        } catch (measureError) {
+          console.warn('Could not scroll to the first invalid field:', measureError);
+        }
       }
       Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please fill all mandatory fields.', position: 'bottom' });
       return;
@@ -230,10 +238,15 @@ const ProductEntryScreen: React.FC = () => {
 
     const allImages = [...cropImages, ...farmImages, ...documentUploads];
     allImages.forEach((photo, index) => {
-      const uriParts = photo.uri.split('.');
-      const fileType = uriParts[uriParts.length - 1];
+      // Use the MIME type Expo's picker reports instead of guessing from the
+      // URI's file extension: on Android, picked assets often come back as
+      // content:// URIs with no real extension (e.g. content://media/.../12345),
+      // which silently produced an invalid type like "image/12345" and made
+      // the backend reject every upload with "failed to upload."
+      const mimeType = photo.mimeType || 'image/jpeg';
+      const extension = mimeType.split('/')[1] || 'jpg';
       formData.append('photos[]', {
-        uri: photo.uri, name: `photo_${index}.${fileType}`, type: `image/${fileType}`,
+        uri: photo.uri, name: `photo_${index}.${extension}`, type: mimeType,
       } as any);
     });
 
@@ -524,7 +537,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: {
-    height: 50,
+    // iOS renders this as its native wheel picker, which needs real vertical
+    // room to display at all — at 50px (fine for Android's compact dropdown)
+    // it rendered clipped/invisible on iOS.
+    height: Platform.select({ ios: 180, default: 50 }),
     width: '100%',
   },
   locationContainer: {
