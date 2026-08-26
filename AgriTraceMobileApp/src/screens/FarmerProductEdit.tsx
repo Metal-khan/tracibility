@@ -52,6 +52,7 @@ const FarmerProductEdit: React.FC = () => {
   const [description, setDescription] = useState<string>('');
   const [productPhotos, setProductPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]); // New photos to upload
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>([]); // URLs of existing photos
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   const [originLat, setOriginLat] = useState<string>('');
   const [originLon, setOriginLon] = useState<string>('');
@@ -84,6 +85,7 @@ const FarmerProductEdit: React.FC = () => {
         });
         const fetchedProduct = productResponse.data.product;
         setProduct(fetchedProduct);
+        setAuthToken(token);
 
         // Populate form fields
         setCropType(fetchedProduct.crop_type);
@@ -392,7 +394,11 @@ const FarmerProductEdit: React.FC = () => {
             <View style={styles.imagePreviewContainer}>
                 <Text style={styles.label}>Existing Photos:</Text>
                 {existingPhotoUrls.map((photoUrl, index) => (
-                    <Image key={`existing-${index}`} source={{ uri: photoUrl }} style={styles.imagePreview} />
+                    <Image
+                        key={`existing-${index}`}
+                        source={{ uri: photoUrl, headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined }}
+                        style={styles.imagePreview}
+                    />
                 ))}
             </View>
         )}

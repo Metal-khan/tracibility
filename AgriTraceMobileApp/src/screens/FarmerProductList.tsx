@@ -22,6 +22,7 @@ const FarmerProductList: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -40,18 +41,11 @@ const FarmerProductList: React.FC = () => {
         },
       });
 
-      // --- FIX: Prepend API_BASE_URL to image paths ---
-      const updatedProducts = response.data.map((product: any) => {
-        if (product.photos_urls_array && product.photos_urls_array.length > 0) {
-          const baseApiUrl = api.defaults.baseURL?.replace('/api', ''); // Get base URL without /api
-          product.photos_urls_array = product.photos_urls_array.map((photoUrl: string) => {
-            return `${baseApiUrl}${photoUrl}`;
-          });
-        }
-        return product;
-      });
-      setProducts(updatedProducts);
-      // --- END FIX ---
+      // photos_urls_array now comes back as full authenticated URLs
+      // already (see Product::getPhotosUrlsArrayAttribute on the backend),
+      // so no path-prepending is needed here anymore.
+      setAuthToken(token);
+      setProducts(response.data);
 
     } catch (err: any) {
       console.error('Failed to fetch products:', err.response?.data || err.message);
@@ -77,7 +71,10 @@ const FarmerProductList: React.FC = () => {
       <Text style={styles.productInfo}>Harvest Date: {item.harvest_date}</Text>
       <Text style={styles.productInfo}>Status: {item.status}</Text>
       {item.photos_urls_array && item.photos_urls_array.length > 0 && (
-        <Image source={{ uri: item.photos_urls_array[0] }} style={styles.productImage} />
+        <Image
+          source={{ uri: item.photos_urls_array[0], headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined }}
+          style={styles.productImage}
+        />
       )}
       <View style={styles.buttonRow}>
         <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('FarmerProductDetails', { productId: item.id.toString() })}>

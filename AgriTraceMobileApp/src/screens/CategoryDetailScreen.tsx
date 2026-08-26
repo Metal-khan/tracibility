@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Button, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, Button, TouchableOpacity, Image, FlatList } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '../services/secureStorage';
 
 // Define the expected structure for the main product data
 interface ProductDetailsData {
@@ -56,6 +57,14 @@ const CategoryDetailScreen: React.FC = () => {
     
     // Type assertion for product data since the generic screen receives various types
     const productData = data as ProductDetailsData;
+
+    // Photos/QR images are served from an authenticated endpoint now (see
+    // ProductController::photo/qrImage on the backend), so this screen
+    // needs its own copy of the token to attach to <Image> requests.
+    const [authToken, setAuthToken] = useState<string | null>(null);
+    useEffect(() => {
+        AsyncStorage.getItem('userToken').then(setAuthToken);
+    }, []);
 
     const renderDetailRow = (icon: string, label: string, value: string | number | undefined) => (
         <View style={styles.detailRow}>
@@ -137,8 +146,8 @@ const CategoryDetailScreen: React.FC = () => {
                         keyExtractor={(item, index) => index.toString()}
                         numColumns={2}
                         renderItem={({ item }) => (
-                            <Image 
-                                source={{ uri: item }} 
+                            <Image
+                                source={{ uri: item, headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined }}
                                 style={styles.galleryImage}
                             />
                         )}

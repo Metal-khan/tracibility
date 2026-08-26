@@ -24,7 +24,9 @@ type ProductQRCodeRouteProp = RouteProp<RootStackParamList, 'ProductQRCode'>;
 
 // Define expected data structure
 interface ProductQRCodeData {
-    qr_code_url: string; // Now holds the BARCODE SVG URL
+    qr_code_url: string; // Authenticated URL to the SVG (kept for reference; not used directly by this screen)
+    qr_code_data_uri: string; // data:image/svg+xml;base64,... — everything needed to render/export, fetched once with auth
+    qr_code_html: string; // Full HTML doc wrapping qr_code_data_uri, for the WebView
     barcode_text: string; // The unique text identifier
     message: string;
     product_id: number;
@@ -64,17 +66,29 @@ const ProductQRCodeScreen: React.FC = () => {
         fetchQrCodeUrl();
     }, [productId]);
 
+    // The SVG's own bytes, base64-decoded from qr_code_data_uri (already
+    // fetched with the auth header on load) — writing them straight to a
+    // local file avoids a second request to the authenticated qr-image
+    // endpoint, which plain FileSystem.downloadAsync/WebView/Print can't
+    // attach an Authorization header to reliably.
+    const writeQrSvgToCache = async (filename: string): Promise<string> => {
+        const dataUri = qrCodeData!.qr_code_data_uri;
+        const base64Svg = dataUri.substring(dataUri.indexOf(',') + 1);
+        const path = FileSystem.cacheDirectory + filename;
+        await FileSystem.writeAsStringAsync(path, base64Svg, { encoding: FileSystem.EncodingType.Base64 });
+        return path;
+    };
+
     const handleDownload = async () => {
-        if (!qrCodeData?.qr_code_url) return;
+        if (!qrCodeData?.qr_code_data_uri) return;
 
         try {
             await MediaLibrary.requestPermissionsAsync();
             const filename = `product_barcode_${productId}.svg`;
 
-            const uri = qrCodeData.qr_code_url;
-            const downloadedFile = await FileSystem.downloadAsync(uri, FileSystem.cacheDirectory + filename);
-            
-            const asset = await MediaLibrary.createAssetAsync(downloadedFile.uri);
+            const localUri = await writeQrSvgToCache(filename);
+
+            const asset = await MediaLibrary.createAssetAsync(localUri);
             const album = await MediaLibrary.getAlbumAsync('Download');
             if (album == null) {
                 await MediaLibrary.createAlbumAsync('Download', asset, false);
@@ -91,19 +105,18 @@ const ProductQRCodeScreen: React.FC = () => {
     };
 
     const handleShare = async () => {
-        if (!qrCodeData?.qr_code_url) return;
+        if (!qrCodeData?.qr_code_data_uri) return;
 
         try {
             const filename = `product_barcode_${productId}.svg`;
-            const uri = qrCodeData.qr_code_url;
-            const downloadedFile = await FileSystem.downloadAsync(uri, FileSystem.cacheDirectory + filename);
+            const localUri = await writeQrSvgToCache(filename);
 
             if (!(await Sharing.isAvailableAsync())) {
                 Toast.show({ type: 'error', text1: 'Sharing not available on this device.' });
                 return;
             }
 
-            await Sharing.shareAsync(downloadedFile.uri, {
+            await Sharing.shareAsync(localUri, {
                 mimeType: 'image/svg+xml',
                 dialogTitle: `Share QR Code for Product ID ${productId}`,
             });
@@ -114,7 +127,7 @@ const ProductQRCodeScreen: React.FC = () => {
     };
 
     const handlePrint = async () => {
-        if (!qrCodeData?.qr_code_url) return;
+        if (!qrCodeData?.qr_code_data_uri) return;
 
         const barcodeHtml = `
             <html>
@@ -127,7 +140,7 @@ const ProductQRCodeScreen: React.FC = () => {
                     </style>
                 </head>
                 <body>
-                    <img src="${qrCodeData.qr_code_url}" />
+                    <img src="${qrCodeData.qr_code_data_uri}" />
                     <h1>${qrCodeData.barcode_text}</h1>
                     <p>Scan this QR code for traceability.</p>
                 </body>
@@ -142,7 +155,7 @@ const ProductQRCodeScreen: React.FC = () => {
         return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#2563eb" /></View>;
     }
 
-    if (error || !qrCodeData?.qr_code_url) {
+    if (error || !qrCodeData?.qr_code_data_uri) {
         return (
             <View style={styles.centerContainer}>
                 <Text style={styles.errorText}>Error: {error || 'QR code URL not found.'}</Text>
@@ -163,10 +176,12 @@ const ProductQRCodeScreen: React.FC = () => {
 
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.qrCodeContainer}>
-                    {/* WebView to render the SVG Barcode image from the URL */}
+                    {/* WebView renders the QR from inline HTML — qr_code_html already
+                        embeds the SVG as a base64 data: URI, so no second
+                        (authenticated) network request is needed here. */}
                     <View style={styles.barcodeWrapper}>
                         <WebView
-                            source={{ uri: qrCodeData.qr_code_url }}
+                            source={{ html: qrCodeData.qr_code_html }}
                             // CRITICAL FIX: Ensure WebView is given full dimensions of the wrapper
                             style={styles.barcodeWebView}
                             scalesPageToFit={false} // Prevent scaling issues

@@ -346,9 +346,13 @@ class ProductController extends Controller
      */
     public function downloadQRCode(Product $product)
     {
-        // For simplicity, we just return the URL and the barcode text
+        // qr_code_data_uri/qr_code_html let the mobile app render, download,
+        // share, and print the code from this one authenticated response —
+        // no follow-up request to qrImage() needed.
         return response()->json([
             'qr_code_url' => $product->qr_code_url,
+            'qr_code_data_uri' => $product->qr_code_data_uri,
+            'qr_code_html' => $product->qr_code_html,
             'barcode_text' => $product->barcode_text,
             'product_id' => $product->id,
         ]);

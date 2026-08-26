@@ -25,6 +25,7 @@ const FarmerProductDetails: React.FC = () => {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProductDetails = async () => {
@@ -43,6 +44,7 @@ const FarmerProductDetails: React.FC = () => {
             Authorization: `Bearer ${token}`,
           },
         });
+        setAuthToken(token);
         setProduct(response.data.product);
       } catch (err: any) {
         console.error('Failed to fetch product details:', err.response?.data || err.message);
@@ -207,7 +209,11 @@ const FarmerProductDetails: React.FC = () => {
               <Text style={styles.sectionSubtitle}>Photos:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
                 {product.photos_urls_array.map((photoUrl: string, index: number) => (
-                  <Image key={index} source={{ uri: photoUrl }} style={styles.productImage} />
+                  <Image
+                    key={index}
+                    source={{ uri: photoUrl, headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined }}
+                    style={styles.productImage}
+                  />
                 ))}
               </ScrollView>
             </View>

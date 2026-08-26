@@ -35,7 +35,7 @@ class Product extends Model
      *
      * @var array
      */
-    protected $appends = ['qr_code_html', 'qr_code_url', 'photos_urls_array'];
+    protected $appends = ['qr_code_html', 'qr_code_url', 'qr_code_data_uri', 'photos_urls_array'];
 
     /**
      * Where this product's QR code SVG lives on the private 'local' disk.
@@ -113,37 +113,54 @@ class Product extends Model
     }
 
     /**
+     * The QR code SVG as an inline data: URI, so it can be embedded directly
+     * (WebView html, <img src>, or decoded back to raw SVG bytes for a
+     * download/share/print flow) without a second authenticated request
+     * back to qrImage() — the mobile app fetches the product/QR data once
+     * with its auth header and everything needed to render or export the
+     * code travels with that one response.
+     */
+    public function getQrCodeDataUriAttribute(): ?string
+    {
+        $qrCodePathInStorage = $this->qrCodeStoragePath();
+
+        if (!Storage::disk('local')->exists($qrCodePathInStorage)) {
+            return null;
+        }
+
+        $svgContent = Storage::disk('local')->get($qrCodePathInStorage);
+
+        return 'data:image/svg+xml;base64,' . base64_encode($svgContent);
+    }
+
+    /**
      * Accessor to generate the QR code HTML directly from the model.
      * This will be included in the JSON response when the model is serialized.
      */
     public function getQrCodeHtmlAttribute(): string
     {
         try {
-            $qrCodePathInStorage = $this->qrCodeStoragePath();
+            $dataUri = $this->qr_code_data_uri;
 
-            // Check if the actual SVG file exists in storage
-            if (Storage::disk('local')->exists($qrCodePathInStorage)) {
-                $svgContent = Storage::disk('local')->get($qrCodePathInStorage);
-                $encodedSvg = base64_encode($svgContent);
-                
-                // Return HTML containing the Base64 encoded SVG image
-                return '<!DOCTYPE html>
-                <html>
-                <head>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <style>
-                        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: white; }
-                        img { width: 100%; height: 100%; object-fit: contain; }
-                    </style>
-                </head>
-                <body>
-                    <img src="data:image/svg+xml;base64,' . $encodedSvg . '" alt="Barcode" />
-                </body>
-                </html>';
-            } else {
+            if (!$dataUri) {
                 // Fallback HTML if the file itself is not found on disk
                 return '<!DOCTYPE html><html><body><p style="text-align:center; color: red;">Error: Barcode file not found on disk or inaccessible.</p></body></html>';
             }
+
+            // Return HTML containing the Base64 encoded SVG image
+            return '<!DOCTYPE html>
+            <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: white; }
+                    img { width: 100%; height: 100%; object-fit: contain; }
+                </style>
+            </head>
+            <body>
+                <img src="' . $dataUri . '" alt="Barcode" />
+            </body>
+            </html>';
         } catch (\Exception $e) {
             // Return an error HTML if any exception occurs during this process
             return '<!DOCTYPE html><html><body><p style="text-align:center; color: red;">Server Error: ' . htmlspecialchars($e->getMessage()) . '</p></body></html>';
