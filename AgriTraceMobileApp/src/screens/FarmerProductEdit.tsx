@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../services/api';
@@ -181,7 +182,24 @@ const FarmerProductEdit: React.FC = () => {
     });
 
     if (!result.canceled) {
-      setProductPhotos(prevPhotos => [...prevPhotos, ...result.assets]);
+      // Re-encode every picked image to a real JPEG before storing it — see
+      // the matching fix in ProductEntryScreen.tsx for why (iOS HEIC photos
+      // get rejected by the backend's image validation, which checks actual
+      // file bytes rather than a claimed MIME type).
+      const jpegAssets = await Promise.all(
+        result.assets.map(async (asset) => {
+          try {
+            const context = ImageManipulator.manipulate(asset.uri);
+            const rendered = await context.renderAsync();
+            const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 });
+            return { ...asset, uri: saved.uri, mimeType: 'image/jpeg', width: saved.width, height: saved.height };
+          } catch (conversionError) {
+            console.warn('Could not convert picked image to JPEG, uploading original:', conversionError);
+            return asset;
+          }
+        })
+      );
+      setProductPhotos(prevPhotos => [...prevPhotos, ...jpegAssets]);
     }
   };
 
@@ -238,12 +256,15 @@ const FarmerProductEdit: React.FC = () => {
 
     // Append new photos
     productPhotos.forEach((photo, index) => {
-      const uriParts = photo.uri.split('.');
-      const fileType = uriParts[uriParts.length - 1];
+      // Use the MIME type Expo's picker reports instead of guessing from
+      // the URI's file extension — see the matching fix in
+      // ProductEntryScreen.tsx (Android content:// URIs often have none).
+      const mimeType = photo.mimeType || 'image/jpeg';
+      const extension = mimeType.split('/')[1] || 'jpg';
       formData.append('photos[]', {
         uri: photo.uri,
-        name: `new_photo_${index}.${fileType}`,
-        type: `image/${fileType}`,
+        name: `new_photo_${index}.${extension}`,
+        type: mimeType,
       } as any);
     });
 

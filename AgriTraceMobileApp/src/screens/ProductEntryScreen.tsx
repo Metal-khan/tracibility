@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../services/api';
@@ -139,7 +140,26 @@ const ProductEntryScreen: React.FC = () => {
       quality: 1,
     });
     if (!result.canceled) {
-      setImageState(prevPhotos => [...prevPhotos, ...result.assets]);
+      // Re-encode every picked image to a real JPEG before storing it.
+      // iOS hands back HEIC by default for camera-roll photos, and the
+      // backend's `image` validation rule checks actual file bytes, not
+      // just whatever MIME type we claim in the upload — a mislabeled
+      // HEIC file gets rejected outright. This guarantees genuine JPEG
+      // bytes regardless of the source format.
+      const jpegAssets = await Promise.all(
+        result.assets.map(async (asset) => {
+          try {
+            const context = ImageManipulator.manipulate(asset.uri);
+            const rendered = await context.renderAsync();
+            const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 });
+            return { ...asset, uri: saved.uri, mimeType: 'image/jpeg', width: saved.width, height: saved.height };
+          } catch (conversionError) {
+            console.warn('Could not convert picked image to JPEG, uploading original:', conversionError);
+            return asset;
+          }
+        })
+      );
+      setImageState(prevPhotos => [...prevPhotos, ...jpegAssets]);
       // Clear error for this field
       if (validationErrors[fieldName]) {
         setValidationErrors(prev => ({ ...prev, [fieldName]: false }));
