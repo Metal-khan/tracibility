@@ -52,8 +52,6 @@ const FarmerDashboard: React.FC = () => {
     { name: "Subscription", icon: "credit-card", screen: "SubscriptionManagement" },
     { name: "Scan History", icon: "barcode-scan", screen: "ScanHistory" },
     { name: "My Reviews", icon: "star", screen: "FarmerReviews" },
-    { name: "Analytics", icon: "chart-bar", screen: "Analytics" },
-    { name: "Contact Us", icon: "email", screen: "ContactUs" },
   ];
 
   return (
