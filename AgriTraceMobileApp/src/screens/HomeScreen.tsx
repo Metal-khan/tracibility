@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Button, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../services/secureStorage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack'; // Import StackNavigationProp
 import api from '../services/api';

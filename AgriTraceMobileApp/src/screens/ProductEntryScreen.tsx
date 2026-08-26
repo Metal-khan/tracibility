@@ -6,7 +6,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../services/secureStorage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Toast from 'react-native-toast-message';
