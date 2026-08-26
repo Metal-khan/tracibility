@@ -134,7 +134,7 @@ const ProductEntryScreen: React.FC = () => {
 
   const pickImage = async (setImageState: React.Dispatch<React.SetStateAction<ImagePicker.ImagePickerAsset[]>>, fieldName: string) => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 1,
     });
@@ -177,28 +177,14 @@ const ProductEntryScreen: React.FC = () => {
     setValidationErrors(errors);
 
     if (Object.keys(errors).length > 0) {
-      const firstErrorField = Object.keys(errors)[0];
-      const errorRef = inputRefs.current[firstErrorField];
-
-      // Not every field's ref is backed by a native component that supports
-      // measureLayout (some picker/dropdown implementations aren't, notably
-      // on iOS) — calling it on one of those throws and would otherwise take
-      // down the whole screen just because auto-scroll-to-error couldn't run.
-      if (errorRef && scrollRef.current && typeof errorRef.measureLayout === 'function') {
-        try {
-          errorRef.measureLayout(
-            scrollRef.current.getInnerViewNode(),
-            (x, y) => {
-              scrollRef.current?.scrollTo({ y: y, animated: true });
-              if (errorRef.focus) {
-                errorRef.focus();
-              }
-            }
-          );
-        } catch (measureError) {
-          console.warn('Could not scroll to the first invalid field:', measureError);
-        }
-      }
+      // Auto-scrolling to the first invalid field used ScrollView's legacy
+      // getInnerViewNode() with ref.measureLayout(), which isn't reliable
+      // under the New Architecture (newArchEnabled: true) — React Native
+      // logs "ref.measureLayout must be called with a ref to a native
+      // component" via console.error internally when it can't measure,
+      // which isn't something a try/catch around the call can suppress
+      // since it's not thrown. Dropped rather than patched: the toast below
+      // already tells the user what's wrong.
       Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please fill all mandatory fields.', position: 'bottom' });
       return;
     }
