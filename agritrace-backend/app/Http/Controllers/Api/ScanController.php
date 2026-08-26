@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesTraceTokens;
 use App\Models\Product;
 use App\Models\Checkpoint; // Ensure Checkpoint model is imported
 use Illuminate\Http\Request;
 
 class ScanController extends Controller
 {
+    use ResolvesTraceTokens;
+
     /**
      * Handle a QR code scan request.
      * This endpoint is public and does not require authentication.
@@ -42,8 +45,10 @@ class ScanController extends Controller
             'notes' => 'nullable|string', // Ensure notes is nullable if not required
         ]);
 
-        // 2. Find the product
-        $product = Product::find($productId);
+        // 2. Find the product (productId here is the scanned trace token, not
+        // necessarily the raw database ID — resolve it first)
+        $resolvedId = $this->resolveTraceToken($productId);
+        $product = $resolvedId === null ? null : Product::find($resolvedId);
         if (!$product) {
             return response()->json(['message' => 'Product not found.'], 404);
         }

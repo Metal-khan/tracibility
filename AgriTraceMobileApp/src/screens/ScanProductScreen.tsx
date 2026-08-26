@@ -74,16 +74,21 @@ const ScanProductScreen: React.FC = () => {
 
         setScanned(true); // Disable further scanning immediately
 
-        const productId = data.replace(/[^0-9]/g, ''); 
+        // QR codes now encode a signed, opaque trace token (letters, digits,
+        // "-", "_") rather than a plain numeric ID — stripping non-digit
+        // characters, like this used to, would mangle every real token into
+        // garbage. Still accepts a plain numeric ID too, for backward
+        // compatibility with anything scanned from an older barcode.
+        const productId = data.trim();
 
-        if (!/^\d+$/.test(productId) || productId.length === 0) {
-            Toast.show({ 
-                type: 'error', 
-                text1: 'Invalid Product ID', 
-                text2: 'The scanned code is not a valid numeric ID. Tap below to retry.', 
-                position: 'bottom' 
+        if (!productId || !/^[A-Za-z0-9_-]+$/.test(productId)) {
+            Toast.show({
+                type: 'error',
+                text1: 'Invalid Product Code',
+                text2: 'The scanned code is not a recognized product code. Tap below to retry.',
+                position: 'bottom'
             });
-            return; 
+            return;
         }
         
         Toast.show({ type: 'info', text1: 'Code Recognized', text2: `Processing ID: ${productId}...`, position: 'bottom' });
@@ -135,7 +140,7 @@ const ScanProductScreen: React.FC = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
                 </TouchableOpacity>
-                <Text style={styles.title}>Scan Product Barcode</Text>
+                <Text style={styles.title}>Scan Product QR Code</Text>
             </View>
             
             <CameraView
@@ -240,8 +245,9 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     scanFrame: {
-        width: 320,
-        height: 80, // Optimized height for a linear barcode
+        // Square, to match scanning a QR code rather than a linear barcode.
+        width: 250,
+        height: 250,
         borderWidth: 3,
         borderColor: '#00cc00', // Professional green border
         borderRadius: 5,

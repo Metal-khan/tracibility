@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesTraceTokens;
 use App\Models\Product;
 use App\Models\ProductDynamicFieldValue;
-use App\Models\Checkpoint; 
+use App\Models\Checkpoint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -14,11 +15,10 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
-// CRITICAL BARCODE IMPORT: Assumes milon/barcode package is installed
-use DNS1D; 
-
 class ProductController extends Controller
 {
+    use ResolvesTraceTokens;
+
     /**
      * Display a listing of products.
      * This will show products created by the authenticated farmer.
@@ -138,31 +138,29 @@ class ProductController extends Controller
 
             // 4. Generate and save the BARCODE (CRITICAL CHANGE)
             $productId = $product->id;
-            
-            // --- NEW IDENTIFIER FORMAT LOGIC ---
-            $datePart = now()->format('dmy'); 
-            $paddedProductId = str_pad($productId, 2, '0', STR_PAD_LEFT);
-            $humanIdentifier = "AGRI000{$datePart}{$paddedProductId}"; 
-            
-            // The value encoded in the barcode should be the simple ID for scanning consistency
-            $barcodeIdentifier = $productId; 
-            $barcodeType = 'C128'; 
-            $barcodeFileName = 'barcode-' . $barcodeIdentifier . '.svg';
-            $barcodeDirectory = 'public/barcodes';
-            $barcodePath = $barcodeDirectory . '/' . $barcodeFileName;
 
-            if (!Storage::disk('local')->exists($barcodeDirectory)) {
-                Storage::disk('local')->makeDirectory($barcodeDirectory);
+            $datePart = now()->format('dmy');
+            $paddedProductId = str_pad($productId, 2, '0', STR_PAD_LEFT);
+            $humanIdentifier = "AGRI000{$datePart}{$paddedProductId}";
+
+            // The QR code encodes a signed, opaque token — not the raw
+            // sequential product ID — so it can't be enumerated/guessed.
+            // See makeTraceToken()/resolveTraceToken() above.
+            $traceToken = $this->makeTraceToken($productId);
+            $qrFileName = 'qr-' . $traceToken . '.svg';
+            $qrDirectory = 'public/qrcodes';
+            $qrPath = $qrDirectory . '/' . $qrFileName;
+
+            if (!Storage::disk('local')->exists($qrDirectory)) {
+                Storage::disk('local')->makeDirectory($qrDirectory);
             }
 
-            // CRITICAL FIX: Cast the identifier to a string to prevent the DNS1D bug
-            $barcodeData = DNS1D::getBarcodeSVG((string)$barcodeIdentifier, $barcodeType);
+            $qrSvg = QrCode::format('svg')->size(300)->generate($traceToken);
 
-            Storage::put($barcodePath, $barcodeData); 
+            Storage::put($qrPath, $qrSvg);
 
-            // Add the unique identifier text below the barcode
-            $product->barcode_text = $humanIdentifier; 
-            $product->qr_code_url = URL::to('/') . Storage::url($barcodePath); // Store the barcode URL
+            $product->barcode_text = $humanIdentifier;
+            $product->qr_code_url = URL::to('/') . Storage::url($qrPath);
             $product->save();
 
             return response()->json([
@@ -184,21 +182,27 @@ class ProductController extends Controller
     public function scan($productId)
     {
         try {
+            $resolvedId = $this->resolveTraceToken((string) $productId);
+
+            if ($resolvedId === null) {
+                return response()->json(['message' => 'Product not found.'], 404);
+            }
+
             // 2. Fetch the Product
             $product = Product::with([
                 'farmer' => function ($query) {
                     $query->select('id', 'name', 'email', 'farm_name', 'contact_number', 'status');
                 },
-                'reviews.buyer', 
+                'reviews.buyer',
                 'dynamicFieldValues.dynamicField'
-            ])->find($productId);
+            ])->find($resolvedId);
 
             if (!$product) {
                 return response()->json(['message' => 'Product not found.'], 404);
             }
 
             // 3. Fetch the Checkpoints (Trace History)
-            $checkpoints = Checkpoint::where('product_id', $productId)
+            $checkpoints = Checkpoint::where('product_id', $resolvedId)
                                      ->orderBy('created_at', 'asc')
                                      ->get();
 

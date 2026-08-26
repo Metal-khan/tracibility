@@ -3,7 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Scr
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+// expo-file-system's SDK 54 API moved cacheDirectory/downloadAsync etc. to a
+// new class-based API — importing from /legacy keeps the familiar API this
+// screen already uses (download-then-share/save) working as-is.
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as Print from 'expo-print';
 import api from '../services/api';
@@ -52,7 +55,7 @@ const ProductQRCodeScreen: React.FC = () => {
                 });
             } catch (err: any) {
                 console.error("Failed to fetch barcode URL:", err.response?.data || err.message);
-                setError(err.response?.data?.message || 'Failed to load barcode data.');
+                setError(err.response?.data?.message || 'Failed to load QR code data.');
             } finally {
                 setLoading(false);
             }
@@ -79,11 +82,11 @@ const ProductQRCodeScreen: React.FC = () => {
                 await MediaLibrary.addAssetsToAlbumAsync([asset], album.id, false);
             }
             
-            Toast.show({ type: 'success', text1: 'Barcode Saved', text2: 'Saved to your gallery/downloads folder.', visibilityTime: 3000 });
+            Toast.show({ type: 'success', text1: 'QR Code Saved', text2: 'Saved to your gallery/downloads folder.', visibilityTime: 3000 });
 
         } catch (e: any) {
             console.error('Download error:', e);
-            Toast.show({ type: 'error', text1: 'Download Failed', text2: e.message || 'Could not save barcode.', visibilityTime: 4000 });
+            Toast.show({ type: 'error', text1: 'Download Failed', text2: e.message || 'Could not save QR code.', visibilityTime: 4000 });
         }
     };
 
@@ -102,7 +105,7 @@ const ProductQRCodeScreen: React.FC = () => {
 
             await Sharing.shareAsync(downloadedFile.uri, {
                 mimeType: 'image/svg+xml',
-                dialogTitle: `Share Barcode for Product ID ${productId}`,
+                dialogTitle: `Share QR Code for Product ID ${productId}`,
             });
         } catch (e: any) {
              console.error('Sharing error:', e);
@@ -126,7 +129,7 @@ const ProductQRCodeScreen: React.FC = () => {
                 <body>
                     <img src="${qrCodeData.qr_code_url}" />
                     <h1>${qrCodeData.barcode_text}</h1>
-                    <p>Scan this barcode for traceability.</p>
+                    <p>Scan this QR code for traceability.</p>
                 </body>
             </html>
         `;
@@ -142,7 +145,7 @@ const ProductQRCodeScreen: React.FC = () => {
     if (error || !qrCodeData?.qr_code_url) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={styles.errorText}>Error: {error || 'Barcode URL not found.'}</Text>
+                <Text style={styles.errorText}>Error: {error || 'QR code URL not found.'}</Text>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}><Text>Go Back</Text></TouchableOpacity>
             </View>
         );
@@ -155,7 +158,7 @@ const ProductQRCodeScreen: React.FC = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Product Barcode</Text>
+                <Text style={styles.headerTitle}>Product QR Code</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.container}>
@@ -222,8 +225,11 @@ const styles = StyleSheet.create({
         marginBottom: 30,
     },
     barcodeWrapper: {
-        width: '100%', 
-        height: 100, // CRITICAL: This fixed height forces WebView content to render
+        // A real QR code is square, not the wide/short shape a linear
+        // barcode needs — this used to be 100% wide x 100px tall, which
+        // squashed the QR into an unscannable sliver.
+        width: 240,
+        height: 240,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 10,
