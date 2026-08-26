@@ -17,6 +17,11 @@ Route::middleware('throttle:auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
 });
 
+Route::middleware('throttle:password-reset')->group(function () {
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
+
 // Protected routes 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);

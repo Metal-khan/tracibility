@@ -7,6 +7,7 @@ use App\Models\User; // CRITICAL FIX: Import the User model
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash; // Ensure Hash is imported for register method
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
@@ -108,5 +109,66 @@ class AuthController extends Controller
             'message' => $message,
             'user' => $user
         ], 201);
+    }
+
+    /**
+     * Request a password reset code by email.
+     */
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $status = Password::sendResetLink($request->only('email'));
+
+        // Always return the same generic response regardless of whether the
+        // email is registered — telling the caller "no account with that
+        // email" would let anyone enumerate which emails have accounts.
+        return response()->json([
+            'message' => 'If an account exists for that email, a password reset code has been sent.',
+        ], match ($status) {
+            Password::RESET_THROTTLED => 429,
+            default => 200,
+        });
+    }
+
+    /**
+     * Complete a password reset using the code emailed via forgotPassword().
+     */
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+
+                // Revoke every existing token — a password reset should log
+                // out any session an attacker may have established.
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return response()->json([
+                'message' => match ($status) {
+                    Password::INVALID_TOKEN => 'This reset code is invalid or has expired.',
+                    Password::INVALID_USER => 'This reset code is invalid or has expired.',
+                    default => 'Could not reset the password. Please request a new code and try again.',
+                },
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Password reset successfully. Please log in with your new password.',
+        ]);
     }
 }

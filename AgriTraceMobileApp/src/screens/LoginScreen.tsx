@@ -10,10 +10,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 // Define your root stackParamList types for type safety in navigation
 type RootStackParamList = {
     Login: undefined;
-    Home: undefined; 
-    Register: undefined; 
-    FarmerDashboard: undefined; 
-    BuyerDashboard: undefined; 
+    Home: undefined;
+    Register: undefined;
+    ForgotPassword: undefined;
+    FarmerDashboard: undefined;
+    BuyerDashboard: undefined;
     LogisticsDashboard: undefined;
     Subscription: undefined; // CRITICAL: Added Subscription screen
 };
@@ -156,6 +157,10 @@ const LoginScreen: React.FC = () => {
                     ) : (
                         <Text style={styles.buttonText}>Login</Text>
                     )}
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                    <Text style={styles.registerLink}>Forgot your password?</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => navigation.navigate('Register')}>

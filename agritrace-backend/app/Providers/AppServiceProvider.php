@@ -30,5 +30,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth', function (Request $request) {
             return Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
         });
+
+        // Separate bucket from 'auth' above — a real register-then-reset-
+        // then-login sequence is 3+ requests against the same email in
+        // quick succession, and sharing one budget with login/register
+        // would let a legitimate user lock themselves out of their own
+        // account recovery.
+        RateLimiter::for('password-reset', function (Request $request) {
+            return Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
+        });
     }
 }

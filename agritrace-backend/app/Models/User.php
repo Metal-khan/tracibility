@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordCode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -63,6 +64,16 @@ class User extends Authenticatable
     }
     // =============================================================
 
+
+    /**
+     * Send the password reset notification. Overridden so it sends a code
+     * to type into the app instead of Laravel's default clickable web
+     * link (there's no web page for it — this is a mobile-only API).
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordCode($token));
+    }
 
     /**
      * Get the products created by the user (if they are a Farmer).
