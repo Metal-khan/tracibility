@@ -143,34 +143,39 @@ const ScanProductScreen: React.FC = () => {
                 <Text style={styles.title}>Scan Product QR Code</Text>
             </View>
             
-            <CameraView
-                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                barcodeScannerSettings={{
-                    barcodeTypes: ["qr", "code39", "code128"],
-                }}
-                style={styles.camera}
-            >
-                <View style={styles.overlay}>
-                    
+            {/* expo-camera's CameraView doesn't support children (SDK 54) —
+                logs a warning and can behave inconsistently — so the scan
+                frame overlay is a sibling, absolutely positioned over the
+                camera by the wrapping cameraContainer, instead of nested
+                inside it. */}
+            <View style={styles.cameraContainer}>
+                <CameraView
+                    onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                    barcodeScannerSettings={{
+                        barcodeTypes: ["qr", "code39", "code128"],
+                    }}
+                    style={styles.camera}
+                />
+                <View style={styles.overlay} pointerEvents="none">
                     {/* CRITICAL: Scan Frame Section (Positioned at the top) */}
                     <View style={styles.scanBoxWrapper}>
                         <Text style={styles.scanInstruction}>
                             Align the code within the horizontal frame.
                         </Text>
-                        
+
                         {/* The scanning window */}
                         <View style={styles.scanFrame}>
-                            <Animated.View 
+                            <Animated.View
                                 style={[
-                                    styles.scanLine, 
+                                    styles.scanLine,
                                     { transform: [{ translateY: scanLinePosition }] }
-                                ]} 
+                                ]}
                             />
                         </View>
                         <Text style={styles.scanHint}>Scanning for Product ID...</Text>
                     </View>
                 </View>
-            </CameraView>
+            </View>
             
             {/* Scan Message/Rescan Button appears at the bottom */}
             {scanned && (
@@ -217,14 +222,23 @@ const styles = StyleSheet.create({
     backButton: { marginRight: 10, padding: 5 },
     title: { fontSize: 20, fontWeight: 'bold', color: '#fff', flex: 1, textAlign: 'center', marginRight: 30 },
     // --- CAMERA/OVERLAY STYLES ---
+    cameraContainer: {
+        flex: 1,
+    },
     camera: {
         flex: 1,
     },
     overlay: {
-        flex: 1,
+        // Positioned over the CameraView by cameraContainer, rather than
+        // rendered as its child (see the render method for why).
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         backgroundColor: 'rgba(0, 0, 0, 0.6)', // Dark translucent overlay for focus
         alignItems: 'center',
-        justifyContent: 'flex-start', 
+        justifyContent: 'flex-start',
     },
     scanBoxWrapper: {
         marginTop: 100, // Position frame well below the header
