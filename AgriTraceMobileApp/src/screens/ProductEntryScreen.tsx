@@ -145,11 +145,16 @@ const ProductEntryScreen: React.FC = () => {
       // backend's `image` validation rule checks actual file bytes, not
       // just whatever MIME type we claim in the upload — a mislabeled
       // HEIC file gets rejected outright. This guarantees genuine JPEG
-      // bytes regardless of the source format.
+      // bytes regardless of the source format. Also cap the width: HEIC
+      // compresses noticeably better than JPEG at the same visual quality,
+      // so re-encoding a full-resolution modern phone photo (12MP+) to
+      // JPEG can come out *larger* than the original HEIC and trip the
+      // backend's 2MB-per-photo limit — a resize keeps output comfortably
+      // under that regardless of the source camera's resolution.
       const jpegAssets = await Promise.all(
         result.assets.map(async (asset) => {
           try {
-            const context = ImageManipulator.manipulate(asset.uri);
+            const context = ImageManipulator.manipulate(asset.uri).resize({ width: 1600 });
             const rendered = await context.renderAsync();
             const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 });
             return { ...asset, uri: saved.uri, mimeType: 'image/jpeg', width: saved.width, height: saved.height };

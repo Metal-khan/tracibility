@@ -187,11 +187,15 @@ const FarmerProductEdit: React.FC = () => {
       // Re-encode every picked image to a real JPEG before storing it — see
       // the matching fix in ProductEntryScreen.tsx for why (iOS HEIC photos
       // get rejected by the backend's image validation, which checks actual
-      // file bytes rather than a claimed MIME type).
+      // file bytes rather than a claimed MIME type). The resize cap keeps
+      // output comfortably under the backend's 2MB-per-photo limit — HEIC
+      // compresses better than JPEG at the same quality, so an uncapped
+      // re-encode of a full-resolution photo can come out larger than the
+      // original and fail the size check instead.
       const jpegAssets = await Promise.all(
         result.assets.map(async (asset) => {
           try {
-            const context = ImageManipulator.manipulate(asset.uri);
+            const context = ImageManipulator.manipulate(asset.uri).resize({ width: 1600 });
             const rendered = await context.renderAsync();
             const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 });
             return { ...asset, uri: saved.uri, mimeType: 'image/jpeg', width: saved.width, height: saved.height };
