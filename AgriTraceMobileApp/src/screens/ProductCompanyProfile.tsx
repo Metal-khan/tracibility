@@ -22,9 +22,16 @@ interface ProductDataForProfile {
     [key: string]: any; 
 }
 
+interface FarmerStats {
+    total_products_posted: number;
+    overall_review_rating: number;
+    review_count: number;
+}
+
 type ProductDetailsRouteParams = {
     title: string;
     data: ProductDataForProfile;
+    farmerStats: FarmerStats | null;
 };
 
 type RootStackParamList = {
@@ -40,20 +47,21 @@ const ProductCompanyProfile: React.FC = () => {
     // Safely extract the data
     const productData = route.params.data;
     const farmerData = productData.farmer || {};
+    const farmerStats = route.params.farmerStats;
 
     // --- DYNAMIC DATA EXTRACTION ---
     const farmerName = farmerData.name || 'N/A';
     const farmName = farmerData.farm_name || 'N/A (Farm Name Missing)';
     const contactNumber = farmerData.contact_number || 'N/A';
     const address = productData.origin_location_address || 'N/A';
-    const status = farmerData.status || 'N/A'; 
-    
-    // Mock data for aggregates (Still rely on frontend mock until backend is built)
-    const dynamicAggregates = {
-        total_products_posted: 124, // Mock
-        overall_review_rating: 4.6, // Mock
-        foundation_date: '2018-05-15', // Mock
-    };
+    const status = farmerData.status || 'N/A';
+
+    // Computed by the backend from real products/reviews (see
+    // ProductController::scan's farmer_stats) — no longer mocked.
+    const totalProductsPosted = farmerStats?.total_products_posted ?? 'N/A';
+    const overallReviewRating = farmerStats && farmerStats.review_count > 0
+        ? `${farmerStats.overall_review_rating} / 5.0 (${farmerStats.review_count} review${farmerStats.review_count === 1 ? '' : 's'})`
+        : 'No reviews yet';
 
     const handleCall = () => {
         if (contactNumber === 'N/A') {
@@ -105,7 +113,6 @@ const ProductCompanyProfile: React.FC = () => {
                     <Text style={styles.sectionTitle}>Basic Information</Text>
                     {renderDetailRow('account-box-outline', 'Registered Name', farmerName)}
                     {renderDetailRow('domain', 'Farm/Entity Name', farmName)}
-                    {renderDetailRow('calendar', 'Foundation Date', dynamicAggregates.foundation_date)}
                     {renderDetailRow('check-circle-outline', 'Status', status)}
                 </View>
 
@@ -119,8 +126,8 @@ const ProductCompanyProfile: React.FC = () => {
                 {/* Performance Metrics (Aggregates) */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Company Performance</Text>
-                    {renderDetailRow('seed-outline', 'Total Products Posted', dynamicAggregates.total_products_posted)}
-                    {renderDetailRow('star', 'Overall Review Rating', `${dynamicAggregates.overall_review_rating} / 5.0`)}
+                    {renderDetailRow('seed-outline', 'Total Products Posted', totalProductsPosted)}
+                    {renderDetailRow('star', 'Overall Review Rating', overallReviewRating)}
                     {renderDetailRow('certificate-outline', 'Certifications', 'View Documents', true, () => {
                          Toast.show({ type: 'info', text1: 'Feature coming soon!', text2: 'Navigating to Certificates screen.', visibilityTime: 3000 });
                     })}

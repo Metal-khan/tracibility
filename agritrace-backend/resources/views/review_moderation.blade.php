@@ -40,7 +40,7 @@
                                     {{ $review->product->crop_type }} (#{{ $review->product->id }})
                                 </a>
                             </td>
-                            <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-700">{{ $review->user->name ?? 'Deleted User' }}</td>
+                            <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-700">{{ $review->buyer->name ?? 'Deleted User' }}</td>
                             <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-900">
                                 <span class="font-bold text-lg text-yellow-500">
                                     {{ $review->rating }}

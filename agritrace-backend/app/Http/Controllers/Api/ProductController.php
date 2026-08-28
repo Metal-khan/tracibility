@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\ResolvesTraceTokens;
 use App\Models\Product;
 use App\Models\ProductDynamicFieldValue;
 use App\Models\Checkpoint;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -211,10 +212,25 @@ class ProductController extends Controller
                                      ->orderBy('created_at', 'asc')
                                      ->get();
 
-            // 4. Return the data the mobile app expects
+            // 4. Aggregate stats for the farmer's Company Profile screen —
+            // previously hardcoded mock values on the mobile side.
+            $farmerStats = null;
+            if ($product->farmer) {
+                $farmerProductIds = Product::where('farmer_id', $product->farmer_id)->pluck('id');
+                $approvedReviews = Review::whereIn('product_id', $farmerProductIds)->where('status', 'approved');
+
+                $farmerStats = [
+                    'total_products_posted' => $farmerProductIds->count(),
+                    'overall_review_rating' => round((float) $approvedReviews->avg('rating'), 1),
+                    'review_count' => $approvedReviews->count(),
+                ];
+            }
+
+            // 5. Return the data the mobile app expects
             return response()->json([
                 'product' => $product,
-                'checkpoints' => $checkpoints
+                'checkpoints' => $checkpoints,
+                'farmer_stats' => $farmerStats,
             ]);
 
         } catch (\Exception $e) {

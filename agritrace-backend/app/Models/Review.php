@@ -12,7 +12,7 @@ class Review extends Model
 
     protected $fillable = [
         'product_id',
-        'user_id', // Changed from buyer_id to user_id in migration/logic
+        'buyer_id',
         'rating',
         'comment',
         'status',
@@ -25,19 +25,12 @@ class Review extends Model
     {
         return $this->belongsTo(Product::class);
     }
-    
-    /**
-     * CRITICAL FIX: Get the User (Buyer) who wrote the review.
-     */
-    public function user(): BelongsTo
-    {
-        // Assumes 'user_id' is the foreign key in the 'reviews' table
-        return $this->belongsTo(User::class, 'user_id'); 
-    }
 
-    /*
-     * NOTE: If your database still uses a 'buyer_id' column, 
-     * this relationship should be public function user(): BelongsTo { return $this->belongsTo(User::class, 'buyer_id'); }
-     * However, we are using the generalized 'user_id' logic from the checkpoint fixes.
+    /**
+     * Get the buyer who wrote the review.
      */
+    public function buyer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'buyer_id');
+    }
 }

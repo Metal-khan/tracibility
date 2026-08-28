@@ -32,6 +32,12 @@ type Checkpoint = {
     timestamp: string;
 };
 
+type FarmerStats = {
+    total_products_posted: number;
+    overall_review_rating: number;
+    review_count: number;
+};
+
 // Define RootStackParamList for navigation type safety
 type RootStackParamList = {
     Login: undefined;
@@ -39,7 +45,7 @@ type RootStackParamList = {
     ProductInfoCategories: { productId: string };
     CategoryDetail: { title: string, data: any, checkpoints: Checkpoint[] }; 
     BuyerReviewsScreen: { productId: string };
-    ProductCompanyProfile: { title: string, data: any }; // Added for type safety
+    ProductCompanyProfile: { title: string, data: any, farmerStats: FarmerStats | null };
 };
 
 type ProductInfoCategoriesRouteProp = RouteProp<RootStackParamList, 'ProductInfoCategories'>;
@@ -53,6 +59,7 @@ const ProductInfoCategories: React.FC = () => {
 
     const [product, setProduct] = useState<ProductDetails | null>(null);
     const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
+    const [farmerStats, setFarmerStats] = useState<FarmerStats | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -69,7 +76,8 @@ const ProductInfoCategories: React.FC = () => {
                 const response = await api.get(`/scan/${productId}`, { headers }); 
                 
                 setProduct(response.data.product);
-                setCheckpoints(response.data.checkpoints || []); 
+                setCheckpoints(response.data.checkpoints || []);
+                setFarmerStats(response.data.farmer_stats || null);
 
                 // 2. Log Buyer Checkpoint
                 await api.post(`/checkpoints/${productId}`, { 
@@ -152,11 +160,12 @@ const ProductInfoCategories: React.FC = () => {
             navigation.navigate('BuyerReviewsScreen', { productId: productId });
         } else if (category.dataKey === 'farmer') {
              // Direct to the specific Company Profile screen
-             navigation.navigate('ProductCompanyProfile', { 
-                title: category.title, 
+             navigation.navigate('ProductCompanyProfile', {
+                title: category.title,
                 data: product,
+                farmerStats: farmerStats,
             });
-        } 
+        }
         // Handle generic screens (Logistics, Gallery, etc.)
         else if (category.dataKey === 'checkpoints') {
             navigation.navigate('CategoryDetail' as any, { 

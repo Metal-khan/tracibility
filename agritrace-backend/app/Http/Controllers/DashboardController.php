@@ -209,7 +209,7 @@ class DashboardController extends Controller
     public function viewProductDetails(Product $product)
     {
         // Load relationships for complete data display
-        $product->load(['farmer', 'reviews.user', 'checkpoints.user', 'dynamicFieldValues.dynamicField']); 
+        $product->load(['farmer', 'reviews.buyer', 'checkpoints.user', 'dynamicFieldValues.dynamicField']);
         
         return view('view_product', ['product' => $product]);
     }
@@ -247,8 +247,8 @@ class DashboardController extends Controller
 
     public function reviews()
     {
-        // Fetch all reviews, eager loading product and user (buyer) details
-        $reviews = Review::with(['product', 'user'])->latest()->get(); 
+        // Fetch all reviews, eager loading product and buyer details
+        $reviews = Review::with(['product', 'buyer'])->latest()->get();
 
         return view('review_moderation', ['reviews' => $reviews]);
     }

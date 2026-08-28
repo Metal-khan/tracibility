@@ -66,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::get('/products/{product}', [ProductController::class, 'show']);
+    Route::get('/products/{product}/reviews', [ReviewController::class, 'index']);
     Route::get('/products/{product}/qrcode', [ProductController::class, 'downloadQRCode']);
     Route::get('/products/{product}/qr-image', [ProductController::class, 'qrImage']);
     Route::get('/products/{product}/photo/{filename}', [ProductController::class, 'photo']);
