@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Button, TouchableOpacity, Image, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, Button, TouchableOpacity, Image } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -138,21 +138,23 @@ const CategoryDetailScreen: React.FC = () => {
             if (photoUrls.length === 0) {
                  return <Text style={styles.emptyText}>No images uploaded for this product.</Text>;
             }
+            // A plain wrapping View instead of FlatList — this screen's body
+            // is already a ScrollView, and a VirtualizedList (FlatList) nested
+            // inside a plain ScrollView with the same orientation breaks
+            // windowing (RN warns loudly about this). A product's photo count
+            // is small and bounded, so virtualization buys nothing here.
             return (
                 <View>
                     <Text style={styles.cardTitle}>Product Photos ({photoUrls.length})</Text>
-                    <FlatList
-                        data={photoUrls}
-                        keyExtractor={(item, index) => index.toString()}
-                        numColumns={2}
-                        renderItem={({ item }) => (
+                    <View style={styles.galleryGrid}>
+                        {photoUrls.map((item, index) => (
                             <Image
+                                key={index}
                                 source={{ uri: item, headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined }}
                                 style={styles.galleryImage}
                             />
-                        )}
-                        contentContainerStyle={styles.galleryGrid}
-                    />
+                        ))}
+                    </View>
                 </View>
             );
         }
@@ -263,6 +265,8 @@ const styles = StyleSheet.create({
     
     // Gallery Styles
     galleryGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         justifyContent: 'space-between',
         paddingVertical: 5,
     },

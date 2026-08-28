@@ -76,6 +76,18 @@ class ProductController extends Controller
                 'unit' => 'nullable|string',
             ]);
 
+            // 9999 is the sentinel for an unlimited/admin-granted quota (see
+            // DashboardController::updateSubscription) — everyone else must
+            // have at least one product left. This was previously enforced
+            // nowhere: a farmer's remaining_products count never actually
+            // blocked or decremented on product creation, so the mobile
+            // subscription screen's "N of M remaining" never changed.
+            if ($user->remaining_products !== 9999 && $user->remaining_products <= 0) {
+                return response()->json([
+                    'message' => 'You have no products remaining on your current plan. Please upgrade to add more.',
+                ], 403);
+            }
+
             // 2. Create the product record and save to get ID
             $product = new Product();
             $product->farmer_id = $request->user()->id;
@@ -112,6 +124,10 @@ class ProductController extends Controller
             $product->unit = $request->packaging_type;
             $product->total_weight = $request->num_packages * $request->weight_per_unit;
             $product->save(); // Save to obtain the product ID
+
+            if ($user->remaining_products !== 9999) {
+                $user->decrement('remaining_products');
+            }
 
             // 3. Handle image uploads — stored on the private 'local' disk
             // (not under 'public/'), so they're never directly reachable by
