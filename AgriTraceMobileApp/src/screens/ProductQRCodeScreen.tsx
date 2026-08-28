@@ -83,7 +83,15 @@ const ProductQRCodeScreen: React.FC = () => {
         if (!qrCodeData?.qr_code_data_uri) return;
 
         try {
-            await MediaLibrary.requestPermissionsAsync();
+            // Only request the 'photo' granular permission — the default
+            // (no args) also requests 'audio', which Expo Go's fixed
+            // Android build doesn't declare in its manifest, making the
+            // whole request throw before the user even sees a prompt.
+            const { granted } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
+            if (!granted) {
+                Toast.show({ type: 'error', text1: 'Permission Required', text2: 'Allow photo access to save the QR code.', visibilityTime: 4000 });
+                return;
+            }
             const filename = `product_barcode_${productId}.svg`;
 
             const localUri = await writeQrSvgToCache(filename);
@@ -178,10 +186,17 @@ const ProductQRCodeScreen: React.FC = () => {
                 <View style={styles.qrCodeContainer}>
                     {/* WebView renders the QR from inline HTML — qr_code_html already
                         embeds the SVG as a base64 data: URI, so no second
-                        (authenticated) network request is needed here. */}
+                        (authenticated) network request is needed here.
+                        baseUrl: '' + originWhitelist are required on Android:
+                        without a baseUrl, source={{html}} loads at the
+                        restrictive "about:blank" origin, where Android's
+                        WebView (unlike iOS's WKWebView) silently refuses to
+                        paint an <img src="data:..."> — the QR box renders
+                        blank with no error. */}
                     <View style={styles.barcodeWrapper}>
                         <WebView
-                            source={{ html: qrCodeData.qr_code_html }}
+                            source={{ html: qrCodeData.qr_code_html, baseUrl: '' }}
+                            originWhitelist={['*']}
                             // CRITICAL FIX: Ensure WebView is given full dimensions of the wrapper
                             style={styles.barcodeWebView}
                             scalesPageToFit={false} // Prevent scaling issues
