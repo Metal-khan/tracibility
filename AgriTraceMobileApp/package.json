@@ -35,7 +35,6 @@
     "expo-file-system": "~19.0.24",
     "expo-print": "~15.0.8",
     "expo-secure-store": "~15.0.8",
-    "expo-media-library": "~18.2.1",
     "expo-camera": "~17.0.10"
   },
   "devDependencies": {

@@ -7,7 +7,6 @@ import * as Sharing from 'expo-sharing';
 // new class-based API — importing from /legacy keeps the familiar API this
 // screen already uses (download-then-share/save) working as-is.
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
 import * as Print from 'expo-print';
 import api from '../services/api';
 import AsyncStorage from '../services/secureStorage';
@@ -79,39 +78,14 @@ const ProductQRCodeScreen: React.FC = () => {
         return path;
     };
 
-    const handleDownload = async () => {
-        if (!qrCodeData?.qr_code_data_uri) return;
-
-        try {
-            // Only request the 'photo' granular permission — the default
-            // (no args) also requests 'audio', which Expo Go's fixed
-            // Android build doesn't declare in its manifest, making the
-            // whole request throw before the user even sees a prompt.
-            const { granted } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
-            if (!granted) {
-                Toast.show({ type: 'error', text1: 'Permission Required', text2: 'Allow photo access to save the QR code.', visibilityTime: 4000 });
-                return;
-            }
-            const filename = `product_barcode_${productId}.svg`;
-
-            const localUri = await writeQrSvgToCache(filename);
-
-            const asset = await MediaLibrary.createAssetAsync(localUri);
-            const album = await MediaLibrary.getAlbumAsync('Download');
-            if (album == null) {
-                await MediaLibrary.createAlbumAsync('Download', asset, false);
-            } else {
-                await MediaLibrary.addAssetsToAlbumAsync([asset], album.id, false);
-            }
-            
-            Toast.show({ type: 'success', text1: 'QR Code Saved', text2: 'Saved to your gallery/downloads folder.', visibilityTime: 3000 });
-
-        } catch (e: any) {
-            console.error('Download error:', e);
-            Toast.show({ type: 'error', text1: 'Download Failed', text2: e.message || 'Could not save QR code.', visibilityTime: 4000 });
-        }
-    };
-
+    // Saving straight to the gallery required expo-media-library, whose
+    // native module (ExpoMediaLibraryNext) Expo Go on SDK 57 currently
+    // fails to resolve at all — just importing the package crashed the
+    // entire app on launch, not only this screen. Routing through the OS
+    // share sheet instead (expo-sharing, already used by handleShare below)
+    // sidesteps the broken module completely: every share sheet offers a
+    // "Save to Photos"/"Save to Files" target, so the user still ends up
+    // with the file saved, just one tap further in.
     const handleShare = async () => {
         if (!qrCodeData?.qr_code_data_uri) return;
 
@@ -126,7 +100,7 @@ const ProductQRCodeScreen: React.FC = () => {
 
             await Sharing.shareAsync(localUri, {
                 mimeType: 'image/svg+xml',
-                dialogTitle: `Share QR Code for Product ID ${productId}`,
+                dialogTitle: `Save or Share QR Code for Product ID ${productId}`,
             });
         } catch (e: any) {
              console.error('Sharing error:', e);
@@ -212,14 +186,10 @@ const ProductQRCodeScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.button} onPress={handleDownload}>
-                        <Text style={styles.buttonText}>SAVE TO GALLERY</Text>
+                    <TouchableOpacity style={styles.button} onPress={handleShare}>
+                        <Text style={styles.buttonText}>SAVE / SHARE</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.button} onPress={handleShare}>
-                        <Text style={styles.buttonText}>SHARE VIA APPS</Text>
-                    </TouchableOpacity>
-                    
                     <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
                         <Text style={styles.buttonText}>PRINT BARCODE</Text>
                     </TouchableOpacity>
