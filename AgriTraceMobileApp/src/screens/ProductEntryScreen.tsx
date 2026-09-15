@@ -21,6 +21,49 @@ type RootStackParamList = {
 
 type ProductEntryScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ProductEntry'>;
 
+interface CertificationEntry {
+  name: string;
+  custom_name: string; // only used when name === 'Other'
+  certifying_body: string;
+  certificate_number: string;
+}
+
+// Common certifications a food/agricultural export batch is actually asked
+// for, grouped by what they cover. Sourced from current (2026) export
+// documentation guidance for food products — phytosanitary/fumigation/
+// origin/REAP entries specifically match what Pakistani rice exporters are
+// required to produce per shipment; the rest are the standards buyers in
+// each major destination market commonly require or prefer to see.
+const CERTIFICATION_OPTIONS = [
+  // Export / customs documentation
+  'Phytosanitary Certificate',
+  'Certificate of Origin',
+  'Fumigation Certificate',
+  'Pre-Shipment Inspection Certificate',
+  'REAP Registration (Rice Exporters Association of Pakistan)',
+  // Food safety management
+  'HACCP',
+  'ISO 22000',
+  'FSSC 22000',
+  'BRCGS Global Standard for Food Safety',
+  'IFS Food',
+  // Good agricultural practice
+  'GLOBALG.A.P.',
+  // Organic
+  'USDA Organic (NOP)',
+  'EU Organic',
+  'India NPOP',
+  // Religious / market-specific
+  'Halal Certification',
+  'Kosher Certification',
+  // Sustainability / trade
+  'Fairtrade International',
+  'Rainforest Alliance',
+  // Country-specific import registration
+  'China GACC Registration',
+  'Other',
+];
+
 const ProductEntryScreen: React.FC = () => {
   const navigation = useNavigation<ProductEntryScreenNavigationProp>();
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
@@ -70,11 +113,16 @@ const ProductEntryScreen: React.FC = () => {
   const [numPackages, setNumPackages] = useState<string>('');
   const [weightPerUnit, setWeightPerUnit] = useState<string>('');
 
-  // Section 6 & 7: Media and Notes
+  // Section 6 & 8: Media and Notes
   const [cropImages, setCropImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [farmImages, setFarmImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [documentUploads, setDocumentUploads] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [specialRemarks, setSpecialRemarks] = useState<string>('');
+
+  // Section 7: Certifications — a repeatable list rather than a single
+  // field, since a batch can legitimately hold several (e.g. Phytosanitary
+  // + Halal + GLOBALG.A.P. all at once for one export shipment).
+  const [certifications, setCertifications] = useState<CertificationEntry[]>([]);
 
 
   useEffect(() => {
@@ -246,6 +294,16 @@ const ProductEntryScreen: React.FC = () => {
     formData.append('weight_per_unit', weightPerUnit);
     formData.append('total_weight', (parseFloat(numPackages) * parseFloat(weightPerUnit)).toString());
     formData.append('special_remarks', specialRemarks);
+    // Resolve "Other" to whatever the farmer actually typed, and drop rows
+    // that were added but never given a name.
+    const resolvedCertifications = certifications
+      .map(cert => ({
+        name: cert.name === 'Other' ? cert.custom_name.trim() : cert.name,
+        certifying_body: cert.certifying_body,
+        certificate_number: cert.certificate_number,
+      }))
+      .filter(cert => cert.name);
+    formData.append('certifications', JSON.stringify(resolvedCertifications));
 
     const allImages = [...cropImages, ...farmImages, ...documentUploads];
     allImages.forEach((photo, index) => {
@@ -318,6 +376,18 @@ const ProductEntryScreen: React.FC = () => {
     </View>
   );
 
+  const addCertification = () => {
+    setCertifications(prev => [...prev, { name: '', custom_name: '', certifying_body: '', certificate_number: '' }]);
+  };
+
+  const updateCertification = (index: number, field: keyof CertificationEntry, value: string) => {
+    setCertifications(prev => prev.map((cert, i) => i === index ? { ...cert, [field]: value } : cert));
+  };
+
+  const removeCertification = (index: number) => {
+    setCertifications(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer} ref={scrollRef}>
       <View style={styles.container}>
@@ -371,10 +441,9 @@ const ProductEntryScreen: React.FC = () => {
         </View>
         <View ref={(el) => { inputRefs.current['season'] = el; }} style={[styles.pickerContainer, validationErrors['season'] && styles.errorBorder]}>
             <Picker selectedValue={season} style={styles.picker} onValueChange={setSeason}>
-                <Picker.Item label="Season / Crop Cycle" value="" />
-                <Picker.Item label="Kharif" value="Kharif" />
-                <Picker.Item label="Rabi" value="Rabi" />
-                <Picker.Item label="Zaid" value="Zaid" />
+                <Picker.Item label="Season" value="" />
+                <Picker.Item label="Winter" value="Winter" />
+                <Picker.Item label="Summer" value="Summer" />
             </Picker>
         </View>
         {renderDatePicker("Sowing Date", sowingDate, showSowingDatePicker, setShowSowingDatePicker, setSowingDate, 'sowingDate')}
@@ -450,7 +519,52 @@ const ProductEntryScreen: React.FC = () => {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Section 7: Additional Notes</Text>
+        <Text style={styles.sectionTitle}>Section 7: Certifications (Optional)</Text>
+        {certifications.map((cert, index) => (
+          <View key={index} style={styles.certCard}>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={cert.name}
+                style={styles.picker}
+                onValueChange={(value) => updateCertification(index, 'name', value)}
+              >
+                <Picker.Item label="Select Certification" value="" />
+                {CERTIFICATION_OPTIONS.map((option) => (
+                  <Picker.Item key={option} label={option} value={option} />
+                ))}
+              </Picker>
+            </View>
+            {cert.name === 'Other' && (
+              <TextInput
+                style={styles.input}
+                placeholder="Certification Name"
+                placeholderTextColor="#888"
+                value={cert.custom_name}
+                onChangeText={(value) => updateCertification(index, 'custom_name', value)}
+              />
+            )}
+            <TextInput
+              style={styles.input}
+              placeholder="Certifying Body (optional)"
+              placeholderTextColor="#888"
+              value={cert.certifying_body}
+              onChangeText={(value) => updateCertification(index, 'certifying_body', value)}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Certificate Number (optional)"
+              placeholderTextColor="#888"
+              value={cert.certificate_number}
+              onChangeText={(value) => updateCertification(index, 'certificate_number', value)}
+            />
+            <TouchableOpacity onPress={() => removeCertification(index)} style={styles.removeCertButton}>
+              <Text style={styles.removeCertButtonText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+        <Button title="+ Add Certification" onPress={addCertification} />
+
+        <Text style={styles.sectionTitle}>Section 8: Additional Notes</Text>
         <TextInput ref={(el) => { inputRefs.current['specialRemarks'] = el; }} style={[styles.input, validationErrors['specialRemarks'] && styles.errorBorder]} placeholder="Special Remarks" placeholderTextColor="#888" value={specialRemarks} onChangeText={setSpecialRemarks} multiline numberOfLines={4} />
 
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitLoading}>
@@ -587,6 +701,25 @@ const styles = StyleSheet.create({
     margin: 5,
     borderWidth: 1,
     borderColor: '#ddd',
+  },
+  certCard: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  removeCertButton: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  removeCertButtonText: {
+    color: '#cc0000',
+    fontWeight: '600',
+    fontSize: 13,
   },
   submitButton: {
     backgroundColor: '#28a745',

@@ -36,8 +36,17 @@ interface ProductDetailsData {
 
     // Gallery
     photos_urls_array?: string[];
-    
-    [key: string]: any; 
+
+    // Certifications
+    certifications?: CertificationEntry[];
+
+    [key: string]: any;
+}
+
+interface CertificationEntry {
+    name: string;
+    certifying_body: string;
+    certificate_number: string;
 }
 
 type CategoryDetailRouteParams = {
@@ -160,8 +169,33 @@ const CategoryDetailScreen: React.FC = () => {
             );
         }
         
-        // 5. Certificates & Sustainability (NEW PLACEHOLDERS)
-        if (title === 'Quality Certificates' || title === 'Sustainability & Practices') {
+        // 5. Quality Certificates — the certifications a farmer attached at
+        // product entry (see ProductEntryScreen's Certifications section).
+        if (title === 'Quality Certificates') {
+            const certs = productData.certifications || [];
+            if (certs.length === 0) {
+                return <Text style={styles.emptyText}>No certifications have been added for this product.</Text>;
+            }
+            return (
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Certifications ({certs.length})</Text>
+                    {certs.map((cert, index) => (
+                        <View key={index} style={styles.detailRow}>
+                            <MaterialCommunityIcons name="certificate-outline" size={22} color="#28a745" style={styles.icon} />
+                            <View style={styles.textContainer}>
+                                <Text style={styles.value}>{cert.name}</Text>
+                                {!!cert.certifying_body && <Text style={styles.label}>Issued by: {cert.certifying_body}</Text>}
+                                {!!cert.certificate_number && <Text style={styles.label}>Certificate #: {cert.certificate_number}</Text>}
+                            </View>
+                        </View>
+                    ))}
+                </View>
+            );
+        }
+
+        // 6. Sustainability (still a placeholder — no structured backend
+        // fields for this category yet)
+        if (title === 'Sustainability & Practices') {
             return (
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>{title}</Text>

@@ -27,7 +27,8 @@ class Product extends Model
         'harvest_date' => 'date',
         'sowing_date' => 'date', 
         'collection_date' => 'date', 
-        'photos_urls' => 'array', 
+        'photos_urls' => 'array',
+        'certifications' => 'array',
     ];
 
     /**

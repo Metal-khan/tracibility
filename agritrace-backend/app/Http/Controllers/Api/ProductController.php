@@ -75,6 +75,10 @@ class ProductController extends Controller
                 'photos.*' => 'image|max:2048',
                 'quantity' => 'nullable|numeric',
                 'unit' => 'nullable|string',
+                // JSON-encoded array of {name, certifying_body, certificate_number}
+                // objects, sent this way because it's a variable-length list
+                // inside a multipart/form-data request.
+                'certifications' => 'nullable|string',
             ]);
 
             // 9999 is the sentinel for an unlimited/admin-granted quota (see
@@ -120,6 +124,7 @@ class ProductController extends Controller
             $product->num_packages = $request->num_packages;
             $product->weight_per_unit = $request->weight_per_unit;
             $product->special_remarks = $request->special_remarks;
+            $product->certifications = $this->parseCertifications($request->certifications);
             $product->status = 'Active';
             $product->quantity = $request->num_packages;
             $product->unit = $request->packaging_type;
@@ -300,6 +305,7 @@ class ProductController extends Controller
                 'photos.*' => 'image|max:2048',
                 'quantity' => 'sometimes|numeric',
                 'unit' => 'sometimes|string',
+                'certifications' => 'nullable|string',
             ]);
 
             $product->farm_name = $request->farm_name;
@@ -333,6 +339,13 @@ class ProductController extends Controller
             $product->quantity = $request->quantity;
             $product->unit = $request->unit;
             $product->total_weight = $request->num_packages * $request->weight_per_unit;
+            // Guarded on has(), unlike the fields above — the edit screen
+            // doesn't send certifications yet, and overwriting with null
+            // on every edit would silently wipe out what was set at
+            // creation.
+            if ($request->has('certifications')) {
+                $product->certifications = $this->parseCertifications($request->certifications);
+            }
 
             if ($user->role === 'farmer') {
                 $product->status = 'Edited Pending Approval'; 
@@ -425,5 +438,35 @@ class ProductController extends Controller
         }
 
         return Storage::disk('local')->response($relativePath);
+    }
+
+    /**
+     * Decode the certifications JSON string sent from the mobile app and
+     * keep only well-formed entries — each must have a non-empty name;
+     * certifying_body/certificate_number are optional. Anything else in
+     * the decoded payload (unexpected keys, non-array rows) is dropped
+     * rather than trusted straight into storage.
+     */
+    private function parseCertifications(?string $raw): array
+    {
+        if (!$raw) {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return collect($decoded)
+            ->filter(fn ($entry) => is_array($entry) && !empty($entry['name']))
+            ->map(fn ($entry) => [
+                'name' => (string) $entry['name'],
+                'certifying_body' => isset($entry['certifying_body']) ? (string) $entry['certifying_body'] : '',
+                'certificate_number' => isset($entry['certificate_number']) ? (string) $entry['certificate_number'] : '',
+            ])
+            ->values()
+            ->all();
     }
 }
