@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '../services/secureStorage';
 import api from '../services/api';
+import { SUBSCRIPTION_PLANS } from '../constants/subscriptionPlans';
 
 // Get screen width for carousel styling
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -32,14 +33,8 @@ const SubscriptionScreen: React.FC = () => {
     // Animation Refs for horizontal scrolling
     const scrollX = useRef(new Animated.Value(0)).current;
 
-    const plans = [
-        { id: 'FREE_TRIAL_3', name: 'Free Trial', price: 0.00, products: 3 as number | string, icon: 'account-star-outline', color: '#007bff' },
-        { id: 'BASIC_5', name: '5 Product Pack', price: 49.99, products: 5 as number | string, icon: 'numeric-5-box-outline', color: '#28a745' },
-        { id: 'STANDARD_10', name: '10 Product Pack', price: 89.99, products: 10 as number | string, icon: 'numeric-10-box-outline', color: '#ffc107' },
-        { id: 'PREMIUM_25', name: '25 Product Pack', price: 199.99, products: 25 as number | string, icon: 'numeric-9-plus-box-outline', color: '#dc3545' },
-        { id: 'UNLIMITED', name: 'Unlimited Annual', price: 499.99, products: 'Unlimited' as number | string, icon: 'infinity', color: '#800080' },
-    ];
-    
+    const plans = SUBSCRIPTION_PLANS;
+
     const isPlanCurrent = (planId: string) => planId === currentPlanId;
 
     // --- Data Fetching ---

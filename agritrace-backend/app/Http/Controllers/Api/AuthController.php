@@ -70,12 +70,8 @@ class AuthController extends Controller
             'contact_number' => 'nullable|string', 
             
             // Logistics fields (Original placeholders)
-            'company_name' => 'nullable|string', 
-            'contact_info' => 'nullable|string', 
-            
-            // Legacy/Optional fields from older schema/forms
-            'farm_details' => 'nullable|string', 
-            'certifications' => 'nullable|string',
+            'company_name' => 'nullable|string',
+            'contact_info' => 'nullable|string',
         ]);
 
         // Determine initial status: Farmer/Logistics need approval, Buyer gets instant access.
@@ -95,10 +91,6 @@ class AuthController extends Controller
             // Map Logistics-specific fields
             'company_name' => $request->role === 'logistics' ? $request->company_name : null,
             'contact_info' => $request->role === 'logistics' ? $request->contact_info : null,
-
-            // Legacy/Original fields (using null to prevent DB errors if not present)
-            'farm_details' => $request->farm_details, 
-            'certifications' => $request->certifications, 
         ]);
         
         $message = ($request->role === 'farmer' || $request->role === 'logistics')
