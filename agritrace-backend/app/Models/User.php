@@ -29,6 +29,18 @@ class User extends Authenticatable
         'subscription_start_date',
         'subscription_end_date',
         'last_payment_date',
+        'remaining_products',
+        // farm_name/contact_number (farmer) and company_name/contact_info
+        // (logistics) were being sent by RegisterScreen.tsx and accepted by
+        // AuthController::register()'s User::create() call, but silently
+        // dropped by mass-assignment protection since they were never
+        // listed here — every registration lost this data regardless of
+        // what the user typed. Same story for MyAccountScreen's profile
+        // editor, which updates contact_number via $user->update([...]).
+        'farm_name',
+        'contact_number',
+        'company_name',
+        'contact_info',
     ];
 
     /**

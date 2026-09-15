@@ -139,6 +139,35 @@ class UserController extends Controller
 
             return response()->json(['history' => $mappedHistory]);
 
+        } elseif ($role === 'logistics') {
+            // Logic for Logistics — every checkpoint this user has personally
+            // logged (their handling history), most recent first. Was
+            // entirely unhandled before (fell through to the 403 below),
+            // so both the "Scan History" and "My Shipments" dashboard menu
+            // items were dead ends for every logistics account.
+            $checkpoints = Checkpoint::where('user_id', $user->id)
+                ->with('product:id,crop_type,variety')
+                ->orderByDesc('created_at')
+                ->get();
+
+            $mappedHistory = $checkpoints->map(function ($checkpoint) {
+                return [
+                    'checkpoint_id' => $checkpoint->id,
+                    'product_id' => $checkpoint->product_id,
+                    'product_name' => $checkpoint->product
+                        ? ($checkpoint->product->crop_type . ' - ' . $checkpoint->product->variety)
+                        : 'Unknown Product',
+                    'location_address' => $checkpoint->location_address,
+                    'notes' => $checkpoint->notes,
+                    'scan_timestamp' => $checkpoint->created_at,
+                    // Matches ScanHistory.tsx's status_Logged style — Scanned
+                    // Created, and Reviewed are the other statuses it knows.
+                    'type' => 'Logged',
+                ];
+            });
+
+            return response()->json(['history' => $mappedHistory]);
+
         } else {
             return response()->json(['message' => 'History retrieval not implemented for this role.'], 403);
         }

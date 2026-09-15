@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '../services/secureStorage';
 import api from '../services/api';
 import Toast from 'react-native-toast-message';
+import { getPlanQuota } from '../constants/subscriptionPlans';
 
 type RootStackParamList = { 
     FarmerDashboard: undefined; 
@@ -59,7 +60,15 @@ const SubscriptionManagement: React.FC = () => {
 
     useEffect(() => {
         fetchSubscriptionData();
-    }, []);
+        // Refetch every time this screen comes back into focus — it was
+        // previously only fetched once on mount, so navigating away to add
+        // a product and back showed a stale remaining_products count from
+        // before the product was created.
+        const unsubscribe = navigation.addListener('focus', () => {
+            fetchSubscriptionData();
+        });
+        return unsubscribe;
+    }, [navigation]);
 
     const handleUpgrade = () => {
         // Navigate the user back to the main Subscription screen to select a new plan
@@ -141,9 +150,11 @@ const SubscriptionManagement: React.FC = () => {
                     <Text style={styles.productCountValue}>
                         {userData.remaining_products === 9999 ? 'UNLIMITED' : userData.remaining_products}
                     </Text>
-                    <Text style={styles.productCountUnit}>
-                        of {userData.subscription_plan.includes('FREE') ? '3' : 'Your Plan Limit'}
-                    </Text>
+                    {userData.remaining_products !== 9999 && (
+                        <Text style={styles.productCountUnit}>
+                            of {getPlanQuota(userData.subscription_plan) ?? 'your plan limit'}
+                        </Text>
+                    )}
                 </View>
                 
                 {/* Action Button */}

@@ -10,6 +10,45 @@ use Illuminate\Http\Request;
 class ReviewController extends Controller
 {
     /**
+     * "My Reviews" — role-aware, for the dashboard menu item of the same
+     * name. A farmer sees every review left on any of their products
+     * (including pending ones, so they can see feedback awaiting
+     * moderation); a buyer sees the reviews they've personally written.
+     * Any other role gets an empty list rather than an error.
+     */
+    public function myReviews(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->role === 'farmer') {
+            $reviews = Review::whereHas('product', fn ($q) => $q->where('farmer_id', $user->id))
+                ->with(['buyer:id,name', 'product:id,crop_type,variety'])
+                ->latest()
+                ->get();
+        } elseif ($user->role === 'buyer') {
+            $reviews = Review::where('buyer_id', $user->id)
+                ->with('product:id,crop_type,variety')
+                ->latest()
+                ->get();
+        } else {
+            $reviews = collect();
+        }
+
+        // Product::$appends (qr_code_html, qr_code_url, qr_code_data_uri,
+        // photos_urls_array) compute regardless of which raw columns the
+        // eager-load select() above asked for — this screen never needs
+        // any of them, and qr_code_html alone is a multi-KB base64 SVG per
+        // review, so drop them rather than shipping that for every row.
+        $reviews->each(function ($review) {
+            $review->product?->makeHidden([
+                'qr_code_html', 'qr_code_url', 'qr_code_data_uri', 'photos_urls_array',
+            ]);
+        });
+
+        return response()->json(['reviews' => $reviews]);
+    }
+
+    /**
      * List a product's approved reviews plus the aggregate rating, for
      * display on the buyer-facing Reviews & Ratings screen. Also returns
      * the requesting user's own review (any status), so the mobile app can

@@ -32,7 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::put('/user/{user}', [UserController::class, 'update']);
-    
+    Route::get('/my-reviews', [ReviewController::class, 'myReviews']);
+
     // SCAN HISTORY ROUTE 
     Route::middleware('role:buyer,farmer,logistics,admin,super_admin')->group(function () {
         Route::get('/history/{role}', [UserController::class, 'getScanHistory']); 
